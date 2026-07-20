@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Platform TIP — Demo Skema & Trigger Modul A</title>
+    <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 25, 40, 0.75);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --accent-primary: #3b82f6; /* Blue */
+            --accent-glowing: #60a5fa;
+            --success: #10b981; /* Emerald */
+            --warning: #f59e0b; /* Amber */
+            --danger: #ef4444; /* Rose */
+            --font-main: 'Plus Jakarta Sans', sans-serif;
+            --font-title: 'Outfit', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: all 0.2s ease-in-out;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 90% 80%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        header {
+            max-width: 1400px;
+            margin: 0 auto 2rem auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .header-title h1 {
+            font-family: var(--font-title);
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #60a5fa 0%, #34d399 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.25rem;
+        }
+
+        .header-title p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* BUTTONS */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.65rem 1.25rem;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-primary);
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-secondary {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: var(--card-border);
+            color: var(--text-primary);
+        }
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #059669;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-danger {
+            background-color: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+        .btn-danger:hover {
+            background-color: var(--danger);
+            color: white;
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-warning {
+            background-color: rgba(245, 158, 11, 0.15);
+            border-color: rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+        }
+        .btn-warning:hover {
+            background-color: var(--warning);
+            color: white;
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
+        }
+
+        /* GRID LAYOUT */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* GLASS CARD */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        .card-header h2 {
+            font-family: var(--font-title);
+            font-size: 1.3rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* STATUS TAGS */
+        .status-panel {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid var(--card-border);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .dot-connected { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+        .dot-disconnected { background-color: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+        /* FORM CONTROLS */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.4rem;
+        }
+
+        .form-control {
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 0.65rem;
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            font-size: 0.9rem;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+        }
+
+        /* CONSOLE/LOGS */
+        .console-log {
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 1rem;
+            height: 250px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            color: #34d399; /* Green text */
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+        }
+
+        .console-entry {
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            padding-bottom: 0.25rem;
+        }
+
+        .console-time {
+            color: var(--text-secondary);
+            margin-right: 0.5rem;
+        }
+
+        .console-error { color: #f87171; }
+        .console-warning { color: #fbbf24; }
+        .console-info { color: #60a5fa; }
+        .console-success { color: #34d399; }
+
+        /* TABS SYSTEM */
+        .tab-buttons {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-family: var(--font-main);
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* DATA TABLE STYLE */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            text-align: left;
+        }
+
+        .data-table th, .data-table td {
+            padding: 0.6rem 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .data-table th {
+            background-color: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        .data-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.01);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .badge-active { background-color: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .badge-inactive { background-color: rgba(239, 68, 68, 0.15); color: #f87171; }
+        .badge-tier-free { background-color: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+        .badge-tier-paid { background-color: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+
+        .json-snapshot {
+            font-family: monospace;
+            max-width: 250px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+            color: #34d399;
+            cursor: pointer;
+        }
+
+        .json-snapshot:hover {
+            white-space: normal;
+            word-break: break-all;
+            max-width: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <h1>IoT Platform TIP</h1>
+            <p>Modul A: Uji Skema Relasi Database, Views, & Trigger PL/pgSQL</p>
+        </div>
+        <div class="status-panel">
+            <div class="status-indicator">
+                <span class="dot" id="db-dot"></span>
+                <span>PostgreSQL: <strong id="db-text">Checking...</strong></span>
+            </div>
+            <div class="status-indicator">
+                <span class="dot" id="redis-dot"></span>
+                <span>Redis: <strong id="redis-text">Checking...</strong></span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        
+        <!-- SISI KIRI: CONTROL & SIMULATION -->
+        <div class="left-column">
+            
+            <!-- CARD 1: SEEDING & RESET -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-database"></i> Database Seeding</h2>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Mulai dengan data dummy</span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                    Hapus semua data di database dan seed data default (2 Akun, 2 Proyek, 2 Perangkat, 3 Sensor, 2 Telegram bot, dan 1 Alert rule).
+                </p>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-success" onclick="seedDatabase()"><i class="fa-solid fa-play"></i> Seed Data Mock</button>
+                    <button class="btn btn-secondary" onclick="checkStatus()"><i class="fa-solid fa-rotate"></i> Cek Koneksi</button>
+                </div>
+            </div>
+
+            <!-- CARD 2: SIMULASI TELEMETRI (SENSOR) -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-gauge-high"></i> Sensor Telemetry Simulator</h2>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Kirim data sensor</span>
+                </div>
+                <form id="telemetry-form" onsubmit="simulateTelemetry(event)">
+                    <div class="form-group">
+                        <label for="sensor-device">Pilih Device & Proyek</label>
+                        <select id="sensor-device" class="form-control">
+                            <option value="1">Sensor Suhu Kebun (Device 1 - Proyek 1 [Ahmad])</option>
+                            <option value="2">Sensor AC Smarthome (Device 2 - Proyek 2 [Siti])</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sensor-channel">Nama Kanal Sensor</label>
+                        <select id="sensor-channel" class="form-control">
+                            <option value="temperature">temperature (Tipe: numeric - Ada Rule > 35°C)</option>
+                            <option value="door_open">door_open (Tipe: boolean - Tipe tidak valid untuk Rule)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sensor-value">Nilai Sensor</label>
+                        <input type="number" id="sensor-value" class="form-control" step="0.1" value="38.5">
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Kirim & Evaluasi</button>
+                </form>
+            </div>
+
+            <!-- CARD 3: PEMBUKTIAN DATABASE TRIGGERS -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-wand-magic-sparkles"></i> Uji Coba Trigger & Index Skema</h2>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">Buktikan integritas skema</span>
+                </div>
+                
+                <!-- UJI 1: SOFT DELETE PROJECT -->
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <h4 style="font-size: 0.9rem; font-weight:600; margin-bottom: 0.5rem; color: var(--warning);">1. Soft Delete Proyek (Cascading Soft-delete)</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                        Saat Proyek 1 (Ahmad) di-soft-delete, trigger <code>trg_projects_soft_delete</code> akan menyebarkan <code>deleted_at</code> ke device & menonaktifkan alert rules di project tersebut.
+                    </p>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button class="btn btn-danger" style="padding: 0.5rem 1rem; font-size: 0.8rem;" onclick="softDeleteProject(1)">
+                            <i class="fa-solid fa-trash"></i> Soft Delete Proyek 1
+                        </button>
+                        <button class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;" onclick="restoreProject(1)">
+                            <i class="fa-solid fa-trash-arrow-up"></i> Restore Proyek 1
+                        </button>
+                    </div>
+                </div>
+
+                <!-- UJI 2: PARTIAL INDEX EMAIL -->
+                <div>
+                    <h4 style="font-size: 0.9rem; font-weight:600; margin-bottom: 0.5rem; color: var(--accent-glowing);">2. Uji Partial Unique Index Email Akun</h4>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                        Email harus unik untuk akun aktif. Jika akun lama di-soft-delete, kita bisa mendaftar ulang dengan email yang sama.
+                    </p>
+                    <form id="account-form" onsubmit="createAccount(event)" style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <input type="email" id="acc-email" class="form-control" style="padding: 0.4rem;" value="pak-ahmad@example.com" placeholder="Email">
+                        <button type="submit" class="btn btn-primary" style="padding: 0.4rem; font-size: 0.8rem;"><i class="fa-solid fa-user-plus"></i> Coba Daftar</button>
+                    </form>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="softDeleteAccount(1)">
+                            <i class="fa-solid fa-user-slash"></i> Soft Delete Akun 1 (Ahmad)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 4: CONSOLE LOGS -->
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-terminal"></i> Console Output Log</h2>
+                    <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="clearLogs()">Clear</button>
+                </div>
+                <div class="console-log" id="console">
+                    <div class="console-entry"><span class="console-time">[12:00:00]</span> Sistem siap. Jalankan 'Seed Data Mock' untuk memulai pengetesan.</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SISI KANAN: DATABASE EXPLORER (TABLES) -->
+        <div class="right-column">
+            
+            <div class="card" style="min-height: 600px;">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-folder-open"></i> Database Tables Explorer</h2>
+                    <button class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="refreshTablesData()">
+                        <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                    </button>
+                </div>
+
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab(event, 'tab-accounts')">accounts</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-projects')">projects</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-devices')">devices</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-channels')">data_channels</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-rules')">alert_rules</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-active-rules')" style="color: var(--success); font-weight:600;">active_alert_rules (View)</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-notif')">notif_channels</button>
+                    <button class="tab-btn" onclick="switchTab(event, 'tab-history')" style="color: var(--accent-glowing); font-weight:600;">alert_history</button>
+                </div>
+
+                <!-- TAB: ACCOUNTS -->
+                <div id="tab-accounts" class="tab-content active">
+                    <table class="data-table" id="table-accounts">
+                        <thead>
+                            <tr><th>ID</th><th>Email</th><th>Tier</th><th>Deleted At</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- TAB: PROJECTS -->
+                <div id="tab-projects" class="tab-content">
+                    <table class="data-table" id="table-projects">
+                        <thead>
+                            <tr><th>ID</th><th>Nama Proyek</th><th>Deleted At</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- TAB: DEVICES -->
+                <div id="tab-devices" class="tab-content">
+                    <table class="data-table" id="table-devices">
+                        <thead>
+                            <tr><th>ID</th><th>Project ID</th><th>Nama Device</th><th>Deleted At</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- TAB: DATA CHANNELS -->
+                <div id="tab-channels" class="tab-content">
+                    <table class="data-table" id="table-channels">
+                        <thead>
+                            <tr><th>ID</th><th>Device ID</th><th>Nama Kanal</th><th>Tipe</th><th>Unit</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- TAB: ALERT RULES -->
+                <div id="tab-rules" class="tab-content">
+                    <table class="data-table" id="table-rules">
+                        <thead>
+                            <tr><th>ID</th><th>Project ID</th><th>Device ID</th><th>Channel ID</th><th>Cond</th><th>Val</th><th>CD (s)</th><th>Active</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- TAB: ACTIVE ALERT RULES (VIEW) -->
+                <div id="tab-active-rules" class="tab-content">
+                    <table class="data-table" id="table-active-rules">
+                        <thead>
+                            <tr><th>ID</th><th>Project ID</th><th>Device ID</th><th>Channel ID</th><th>Cond</th><th>Val</th><th>CD (s)</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- TAB: NOTIF CHANNELS -->
+                <div id="tab-notif" class="tab-content">
+                    <table class="data-table" id="table-notif">
+                        <thead>
+                            <tr><th>ID</th><th>Project ID</th><th>Nama Target</th><th>Tipe</th><th>Deleted At</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+                <!-- TAB: ALERT HISTORY -->
+                <div id="tab-history" class="tab-content">
+                    <table class="data-table" id="table-history">
+                        <thead>
+                            <tr><th>ID</th><th>Rule ID</th><th>Proj</th><th>Dev</th><th>Ch</th><th>Val</th><th>Snapshot (Trigger)</th><th>Waktu</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Script dashboard logic -->
+    <script>
+        // Init load
+        window.addEventListener('DOMContentLoaded', () => {
+            checkStatus();
+            refreshTablesData();
+        });
+
+        // Cek status Postgres dan Redis
+        async function checkStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                
+                // Postgres status
+                const dbDot = document.getElementById('db-dot');
+                const dbText = document.getElementById('db-text');
+                if (data.postgres.status === 'connected') {
+                    dbDot.className = 'dot dot-connected';
+                    dbText.innerText = 'Connected';
+                } else {
+                    dbDot.className = 'dot dot-disconnected';
+                    dbText.innerText = 'Disconnected';
+                    addLog(`Error Postgres: ${data.postgres.details}`, 'error');
+                }
+
+                // Redis status
+                const redisDot = document.getElementById('redis-dot');
+                const redisText = document.getElementById('redis-text');
+                if (data.redis.status === 'connected') {
+                    redisDot.className = 'dot dot-connected';
+                    redisText.innerText = 'Connected';
+                } else {
+                    redisDot.className = 'dot dot-disconnected';
+                    redisText.innerText = 'Disconnected';
+                    addLog(`Error Redis: ${data.redis.details}`, 'error');
+                }
+            } catch (e) {
+                addLog(`Gagal fetch status API: ${e.message}`, 'error');
+            }
+        }
+
+        // Seeding database
+        async function seedDatabase() {
+            addLog("Mengeksekusi Seed database...", "info");
+            try {
+                const res = await fetch('/api/seed-mock', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    addLog(data.message, "success");
+                    refreshTablesData();
+                } else {
+                    addLog(`Gagal: ${data.detail}`, "error");
+                }
+            } catch (e) {
+                addLog(`Error: ${e.message}`, "error");
+            }
+        }
+
+        // Refresh tabel
+        async function refreshTablesData() {
+            try {
+                const res = await fetch('/api/dashboard-data');
+                if (!res.ok) throw new Error("Gagal mengambil data dashboard.");
+                const data = await res.json();
+
+                // 1. Populate Accounts
+                populateTable('table-accounts', data.accounts, row => `
+                    <td>${row.id}</td>
+                    <td>${row.email}</td>
+                    <td><span class="badge badge-tier-${row.tier}">${row.tier}</span></td>
+                    <td>${row.deleted_at ? row.deleted_at : '<span style="color:var(--text-secondary)">NULL (Aktif)</span>'}</td>
+                `);
+
+                // 2. Populate Projects
+                populateTable('table-projects', data.projects, row => `
+                    <td>${row.id}</td>
+                    <td>${row.name}</td>
+                    <td>${row.deleted_at ? row.deleted_at : '<span style="color:var(--text-secondary)">NULL (Aktif)</span>'}</td>
+                `);
+
+                // 3. Populate Devices
+                populateTable('table-devices', data.devices, row => `
+                    <td>${row.id}</td>
+                    <td>${row.project_id}</td>
+                    <td>${row.name}</td>
+                    <td>${row.deleted_at ? row.deleted_at : '<span style="color:var(--text-secondary)">NULL (Aktif)</span>'}</td>
+                `);
+
+                // 4. Populate Data Channels
+                populateTable('table-channels', data.channels, row => `
+                    <td>${row.id}</td>
+                    <td>${row.device_id}</td>
+                    <td><code>${row.name}</code></td>
+                    <td>${row.channel_type}</td>
+                    <td>${row.unit ? row.unit : '-'}</td>
+                `);
+
+                // 5. Populate Alert Rules
+                populateTable('table-rules', data.rules, row => `
+                    <td>${row.id}</td>
+                    <td>${row.project_id}</td>
+                    <td>${row.device_id}</td>
+                    <td>${row.channel_id}</td>
+                    <td><code>${row.operator}</code></td>
+                    <td>${row.threshold_value}</td>
+                    <td>${row.cooldown_seconds}</td>
+                    <td><span class="badge ${row.is_active ? 'badge-active' : 'badge-inactive'}">${row.is_active}</span></td>
+                `);
+
+                // 6. Populate Active Alert Rules (View)
+                populateTable('table-active-rules', data.active_rules, row => `
+                    <td>${row.id}</td>
+                    <td>${row.project_id}</td>
+                    <td>${row.device_id}</td>
+                    <td>${row.channel_id}</td>
+                    <td><code>${row.operator}</code></td>
+                    <td>${row.threshold_value}</td>
+                    <td>${row.cooldown_seconds}</td>
+                `);
+
+                // 7. Populate Notification Channels
+                populateTable('table-notif', data.notif_channels, row => `
+                    <td>${row.id}</td>
+                    <td>${row.project_id}</td>
+                    <td>${row.name}</td>
+                    <td>${row.type}</td>
+                    <td>${row.deleted_at ? row.deleted_at : '<span style="color:var(--text-secondary)">NULL</span>'}</td>
+                `);
+
+                // 8. Populate Alert History
+                populateTable('table-history', data.history, row => `
+                    <td>${row.id}</td>
+                    <td>${row.alert_rule_id ? row.alert_rule_id : '<span style="color:var(--danger)">deleted (NULL)</span>'}</td>
+                    <td>${row.project_id}</td>
+                    <td>${row.device_id}</td>
+                    <td>${row.channel_id}</td>
+                    <td><strong>${row.value_at_trigger}</strong></td>
+                    <td><span class="json-snapshot">${JSON.stringify(row.rule_snapshot)}</span></td>
+                    <td>${new Date(row.triggered_at).toLocaleTimeString()}</td>
+                `);
+
+            } catch (e) {
+                addLog(`Gagal refresh tabel: ${e.message}`, "error");
+            }
+        }
+
+        // Helper untuk populasi tabel
+        function populateTable(tableId, list, rowRenderer) {
+            const tbody = document.querySelector(`#${tableId} tbody`);
+            tbody.innerHTML = '';
+            if (list.length === 0) {
+                const colCount = document.querySelectorAll(`#${tableId} th`).length;
+                tbody.innerHTML = `<tr><td colspan="${colCount}" style="text-align:center; color:var(--text-secondary);">Tidak ada data (Kosong)</td></tr>`;
+                return;
+            }
+            list.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = rowRenderer(row);
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Simulasi pengiriman data telemetri
+        async function simulateTelemetry(e) {
+            e.preventDefault();
+            const deviceId = parseInt(document.getElementById('sensor-device').value);
+            const channelName = document.getElementById('sensor-channel').value;
+            const value = parseFloat(document.getElementById('sensor-value').value);
+
+            addLog(`Mengirim simulasi data sensor: Device=${deviceId}, ${channelName}=${value}...`, "info");
+
+            try {
+                const res = await fetch('/api/simulate-telemetry', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId, channel_name: channelName, value: value })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    if (data.matched) {
+                        if (data.triggered) {
+                            if (data.cooldown) {
+                                addLog(data.message, "warning");
+                            } else {
+                                addLog(data.message, "success");
+                            }
+                        } else {
+                            addLog(data.message, "info");
+                        }
+                    } else {
+                        addLog(data.message, "info");
+                    }
+                    refreshTablesData();
+                } else {
+                    addLog(`Simulasi Gagal: ${data.detail}`, "error");
+                }
+            } catch (err) {
+                addLog(`Error simulasi: ${err.message}`, "error");
+            }
+        }
+
+        // Uji soft delete project
+        async function softDeleteProject(id) {
+            addLog(`Menjalankan soft delete proyek ${id}...`, "info");
+            try {
+                const res = await fetch(`/api/soft-delete-project/${id}`, { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    addLog(data.message, "success");
+                    refreshTablesData();
+                } else {
+                    addLog(`Gagal: ${data.detail}`, "error");
+                }
+            } catch (e) {
+                addLog(`Error: ${e.message}`, "error");
+            }
+        }
+
+        // Restore project
+        async function restoreProject(id) {
+            addLog(`Mengaktifkan kembali proyek ${id}...`, "info");
+            try {
+                const res = await fetch(`/api/reset-project/${id}`, { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    addLog(data.message, "success");
+                    refreshTablesData();
+                } else {
+                    addLog(`Gagal: ${data.detail}`, "error");
+                }
+            } catch (e) {
+                addLog(`Error: ${e.message}`, "error");
+            }
+        }
+
+        // Coba daftar akun (unique index test)
+        async function createAccount(e) {
+            e.preventDefault();
+            const email = document.getElementById('acc-email').value;
+            addLog(`Mencoba mendaftarkan email: ${email}...`, "info");
+            try {
+                const res = await fetch('/api/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: email, password: "password_tes_123", tier: "free" })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    addLog(`Akun berhasil dibuat: ID=${data.data.id}, Email=${data.data.email}`, "success");
+                    refreshTablesData();
+                } else {
+                    addLog(`Gagal mendaftar: ${data.detail}`, "error");
+                }
+            } catch (err) {
+                addLog(`Error: ${err.message}`, "error");
+            }
+        }
+
+        // Soft delete akun
+        async function softDeleteAccount(id) {
+            addLog(`Men-softdelete akun ${id}...`, "info");
+            try {
+                const res = await fetch(`/api/accounts/soft-delete/${id}`, { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    addLog(data.message, "success");
+                    refreshTablesData();
+                } else {
+                    addLog(`Gagal: ${data.detail}`, "error");
+                }
+            } catch (e) {
+                addLog(`Error: ${e.message}`, "error");
+            }
+        }
+
+        // Console logger
+        function addLog(text, type = 'info') {
+            const consoleBox = document.getElementById('console');
+            const entry = document.createElement('div');
+            entry.className = `console-entry console-${type}`;
+            
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'console-time';
+            timeSpan.innerText = `[${new Date().toLocaleTimeString()}]`;
+            
+            entry.appendChild(timeSpan);
+            entry.appendChild(document.createTextNode(text));
+            
+            consoleBox.appendChild(entry);
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('console').innerHTML = '';
+        }
+
+        // Switch Tabs Explorer
+        function switchTab(evt, tabId) {
+            const tabcontents = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabcontents.length; i++) {
+                tabcontents[i].className = tabcontents[i].className.replace(" active", "");
+            }
+
+            const tablinks = document.getElementsByClassName("tab-btn");
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+
+            document.getElementById(tabId).className += " active";
+            evt.currentTarget.className += " active";
+        }
+    </script>
+</body>
+</html>

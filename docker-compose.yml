@@ -1,0 +1,153 @@
+# =============================================================================
+# Docker Compose — IoT Platform Multi-Tenant (Modul A Infrastructure)
+# Stack: PostgreSQL 15 + TimescaleDB HA | Redis 7
+# Standar: Production-ready (health checks, persistent volumes, network isolation)
+#
+# CARA PAKAI:
+#   1. cp .env.example .env          ← salin template, isi passwordnya
+#   2. docker compose up -d          ← jalankan semua service
+#   3. docker compose logs -f        ← monitor log
+#   4. alembic upgrade head          ← jalankan migrasi schema
+# =============================================================================
+
+name: iot-platform-tip
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # DATABASE: PostgreSQL 15 + TimescaleDB High Availability
+  #
+  # Mengapa timescaledb-ha (High Availability)?
+  # - Sudah include ekstensi TimescaleDB + pg_stat_statements + pg_cron
+  # - Lebih stabil untuk production vs image timescaledb biasa
+  # - pg_stat_statements: kita bisa audit query yang lambat langsung dari DB
+  #
+  # Mengapa PostgreSQL 15 (bukan 16/17)?
+  # - TimescaleDB HA paling mature dan teruji di PostgreSQL 15
+  # - Fitur yang dibutuhkan (generated columns, JSONB, partial index, RLS) sudah
+  #   lengkap sejak PostgreSQL 13. Tidak perlu bleeding-edge version.
+  # ---------------------------------------------------------------------------
+  db:
+    image: timescale/timescaledb-ha:pg15-latest
+    container_name: tip_postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Aktifkan pg_stat_statements saat init (monitoring query performance)
+      POSTGRESQL_CONF_shared_preload_libraries: "timescaledb,pg_stat_statements"
+
+    ports:
+      # Ekspos ke host hanya untuk development/debugging.
+      # Di production nyata (VPS): tutup port ini dan akses lewat Docker network saja.
+      - "${POSTGRES_PORT:-5432}:5432"
+
+    volumes:
+      # Volume untuk data PostgreSQL — JANGAN dihapus sembarangan!
+      - postgres_data:/home/postgres/pgdata/data
+      # Script inisialisasi: dijalankan SEKALI saat volume kosong (fresh install)
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      # Custom postgresql.conf untuk tuning produksi
+      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+
+    healthcheck:
+      # Cek apakah PostgreSQL siap menerima koneksi dengan user yang benar
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s   # Beri waktu TimescaleDB init sebelum mulai dicek
+
+    networks:
+      - iot_platform_net
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  # ---------------------------------------------------------------------------
+  # CACHE & EVENT BUS: Redis 7
+  #
+  # Redis dipakai untuk DUA tujuan berbeda di platform ini:
+  #
+  # 1. EVENT BUS (Redis Streams)
+  #    Modul B menulis event sensor → Redis Streams
+  #    Modul A (Alert Engine) baca via consumer group "alert-engine-group"
+  #    Modul C (WebSocket) baca via consumer group "websocket-group"
+  #    Modul D (AI) baca via consumer group "inference-group"
+  #
+  # 2. CACHE & COOLDOWN (Redis Key-Value)
+  #    - "device:auth:{sha256_hash}" → cache autentikasi device (TTL 1 jam)
+  #    - "alert:cooldown:{rule_id}" → cooldown anti-spam notifikasi (TTL = cooldown_seconds)
+  #
+  # Mengapa satu instance Redis untuk keduanya?
+  # - Untuk skala MVP 8 minggu ini, satu instance cukup.
+  # - Redis 7 sudah support key prefix yang bagus untuk separasi logis.
+  # - Kalau nanti butuh scale, pisah ke Redis Cluster — migrasinya tidak besar.
+  #
+  # appendonly yes: Persistensi data Redis ke disk.
+  # Penting agar consumer group tidak hilang saat Redis restart.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7.2-alpine
+    container_name: tip_redis
+    restart: unless-stopped
+
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory ${REDIS_MAXMEMORY:-512mb}
+      --maxmemory-policy allkeys-lru
+
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+    volumes:
+      - redis_data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks:
+      - iot_platform_net
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+# =============================================================================
+# VOLUMES — Persistent storage untuk data DB dan Redis
+# Named volumes dikelola oleh Docker, aman dari docker compose down biasa.
+# Untuk menghapus data: docker compose down -v (HATI-HATI di production!)
+# =============================================================================
+volumes:
+  postgres_data:
+    name: tip_postgres_data
+  redis_data:
+    name: tip_redis_data
+
+# =============================================================================
+# NETWORKS — Isolasi jaringan internal
+# Semua service hanya bisa bicara satu sama lain lewat network ini.
+# Service backend (FastAPI) nanti ditambahkan ke network yang sama.
+# =============================================================================
+networks:
+  iot_platform_net:
+    name: tip_internal_net
+    driver: bridge

@@ -1,0 +1,67 @@
+<mxfile host="app.diagrams.net" modified="2026-07-12T00:00:00.000Z" agent="Codex" version="26.0.14" type="device">
+  <diagram id="erd-modul-a" name="ERD Modul A">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="&lt;b&gt;ERD Modul A — IoT Platform Multi-Tenant&lt;/b&gt;&lt;br&gt;Sumber: schema_modul_a.sql" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="10" width="620" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="accounts" value="&lt;b&gt;ACCOUNTS&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK&lt;/b&gt; id : BIGSERIAL&lt;br&gt;email : TEXT (unique aktif)&lt;br&gt;password_hash : TEXT&lt;br&gt;tier : TEXT&lt;br&gt;created_at : TIMESTAMPTZ&lt;br&gt;updated_at : TIMESTAMPTZ&lt;br&gt;deleted_at : TIMESTAMPTZ (nullable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="60" width="260" height="190" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="projects" value="&lt;b&gt;PROJECTS&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK&lt;/b&gt; id : BIGSERIAL&lt;br&gt;name : TEXT&lt;br&gt;created_at : TIMESTAMPTZ&lt;br&gt;updated_at : TIMESTAMPTZ&lt;br&gt;deleted_at : TIMESTAMPTZ (nullable)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="360" width="260" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="project_members" value="&lt;b&gt;PROJECT_MEMBERS&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK, FK&lt;/b&gt; project_id : BIGINT&lt;br&gt;&lt;b&gt;PK, FK&lt;/b&gt; account_id : BIGINT&lt;br&gt;role : TEXT&lt;br&gt;created_at : TIMESTAMPTZ&lt;br&gt;&lt;br&gt;Aturan: maksimal 1 owner/project" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="350" y="60" width="280" height="165" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="devices" value="&lt;b&gt;DEVICES&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK&lt;/b&gt; id : BIGSERIAL&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; project_id : BIGINT&lt;br&gt;name : TEXT&lt;br&gt;api_key_hash : TEXT (unique)&lt;br&gt;created_at : TIMESTAMPTZ&lt;br&gt;updated_at : TIMESTAMPTZ&lt;br&gt;deleted_at : TIMESTAMPTZ (nullable)&lt;br&gt;&lt;br&gt;Unique: (id, project_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="350" y="340" width="280" height="215" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="data_channels" value="&lt;b&gt;DATA_CHANNELS&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK&lt;/b&gt; id : BIGSERIAL&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; device_id : BIGINT&lt;br&gt;name : TEXT&lt;br&gt;channel_type : TEXT&lt;br&gt;unit : TEXT (nullable)&lt;br&gt;created_at : TIMESTAMPTZ&lt;br&gt;updated_at : TIMESTAMPTZ&lt;br&gt;&lt;br&gt;Unique: (device_id, name)&lt;br&gt;Unique: (id, device_id)&lt;br&gt;Unique: (id, device_id, channel_type)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="690" y="350" width="295" height="250" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="alert_rules" value="&lt;b&gt;ALERT_RULES&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK&lt;/b&gt; id : BIGSERIAL&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; project_id : BIGINT&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; channel_id : BIGINT&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; device_id : BIGINT&lt;br&gt;channel_type : TEXT = numeric&lt;br&gt;operator : TEXT&lt;br&gt;threshold_value : NUMERIC&lt;br&gt;cooldown_seconds : INTEGER ≥ 1&lt;br&gt;is_active : BOOLEAN&lt;br&gt;created_at : TIMESTAMPTZ&lt;br&gt;updated_at : TIMESTAMPTZ&lt;br&gt;&lt;br&gt;Unique: (id, project_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="315" width="310" height="305" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="notification_channels" value="&lt;b&gt;NOTIFICATION_CHANNELS&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK&lt;/b&gt; id : BIGSERIAL&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; project_id : BIGINT&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; account_id : BIGINT&lt;br&gt;name : TEXT&lt;br&gt;type : TEXT&lt;br&gt;config : JSONB&lt;br&gt;created_at : TIMESTAMPTZ&lt;br&gt;updated_at : TIMESTAMPTZ&lt;br&gt;deleted_at : TIMESTAMPTZ (nullable)&lt;br&gt;&lt;br&gt;Unique: (id, project_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="690" y="55" width="310" height="260" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="alert_rule_targets" value="&lt;b&gt;ALERT_RULE_TARGETS&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK, FK&lt;/b&gt; alert_rule_id : BIGINT&lt;br&gt;&lt;b&gt;PK, FK&lt;/b&gt; notification_channel_id : BIGINT&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; project_id : BIGINT&lt;br&gt;&lt;br&gt;Menjaga rule dan target di project yang sama" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="100" width="310" height="170" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="alert_history" value="&lt;b&gt;ALERT_HISTORY&lt;/b&gt;&lt;br&gt;──────────────&lt;br&gt;&lt;b&gt;PK&lt;/b&gt; id : BIGSERIAL&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; alert_rule_id : BIGINT (nullable)&lt;br&gt;project_id : BIGINT&lt;br&gt;device_id : BIGINT&lt;br&gt;channel_id : BIGINT&lt;br&gt;value_at_trigger : NUMERIC&lt;br&gt;rule_snapshot : JSONB&lt;br&gt;triggered_at : TIMESTAMPTZ&lt;br&gt;&lt;br&gt;Rule dihapus → FK menjadi NULL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="370" width="310" height="245" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="note" value="&lt;b&gt;CATATAN OTOMATIS&lt;/b&gt;&lt;br&gt;• Trigger memperbarui updated_at.&lt;br&gt;• Soft-delete project menonaktifkan device, notification channel, dan alert rule.&lt;br&gt;• Soft-delete device menonaktifkan alert rule.&lt;br&gt;• Trigger history mengisi project_id, device_id, channel_id, dan rule_snapshot.&lt;br&gt;• View active_alert_rules: hanya rule aktif, project/device aktif, channel numeric.&lt;br&gt;• View active_alert_rule_targets: hanya target notification channel aktif." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20" y="650" width="1690" height="130" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1" value="account_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="accounts" target="project_members"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" value="project_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="projects" target="project_members"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="project_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="projects" target="devices"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" value="device_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="devices" target="data_channels"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="(id, project_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="projects" target="alert_rules"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" value="(id, project_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="devices" target="alert_rules"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="(id, device_id, channel_type)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="data_channels" target="alert_rules"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" value="project_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="projects" target="notification_channels"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="(project_id, account_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="project_members" target="notification_channels"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" value="(id, project_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="alert_rules" target="alert_rule_targets"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" value="(id, project_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="notification_channels" target="alert_rule_targets"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" value="alert_rule_id, ON DELETE SET NULL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="alert_rules" target="alert_history"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

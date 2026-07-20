@@ -1,0 +1,93 @@
+<mxfile host="app.diagrams.net" modified="2026-07-13T00:00:00.000Z" agent="Codex" version="26.0.14" type="device">
+  <diagram id="iot-platform-rapi" name="ERD Rapi">
+    <mxGraphModel dx="1600" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1440" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="&lt;b&gt;ERD MODUL A - IOT PLATFORM&lt;/b&gt;&lt;br&gt;Relasi tabel mengikuti schema_modul_a.sql" style="text;html=1;align=left;verticalAlign=middle;fontSize=20;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="700" height="35" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="accounts" value="ACCOUNTS" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#6eaed2;strokeColor=#2f6d8d;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="255" height="225" as="geometry"/>
+        </mxCell>
+        <mxCell id="accounts_body" value="&lt;b&gt;PK&lt;/b&gt; id&lt;br&gt;email (unique aktif)&lt;br&gt;password_hash&lt;br&gt;tier [free/paid]&lt;br&gt;created_at&lt;br&gt;updated_at&lt;br&gt;deleted_at (soft delete)" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="accounts">
+          <mxGeometry y="32" width="255" height="193" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="projects" value="PROJECTS" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#6eaed2;strokeColor=#2f6d8d;" vertex="1" parent="1">
+          <mxGeometry x="470" y="80" width="255" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="projects_body" value="&lt;b&gt;PK&lt;/b&gt; id&lt;br&gt;name (minimal 3 karakter)&lt;br&gt;created_at&lt;br&gt;updated_at&lt;br&gt;deleted_at (soft delete)" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="projects">
+          <mxGeometry y="32" width="255" height="158" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="project_members" value="PROJECT_MEMBERS" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#6eaed2;strokeColor=#2f6d8d;" vertex="1" parent="1">
+          <mxGeometry x="300" y="370" width="300" height="195" as="geometry"/>
+        </mxCell>
+        <mxCell id="project_members_body" value="&lt;b&gt;PK, FK&lt;/b&gt; project_id -&gt; projects&lt;br&gt;&lt;b&gt;PK, FK&lt;/b&gt; account_id -&gt; accounts&lt;br&gt;role [owner/collaborator]&lt;br&gt;created_at&lt;br&gt;&lt;br&gt;Aturan: maksimal 1 owner/project" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="project_members">
+          <mxGeometry y="32" width="300" height="163" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="devices" value="DEVICES" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#6eaed2;strokeColor=#2f6d8d;" vertex="1" parent="1">
+          <mxGeometry x="40" y="660" width="270" height="235" as="geometry"/>
+        </mxCell>
+        <mxCell id="devices_body" value="&lt;b&gt;PK&lt;/b&gt; id&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; project_id -&gt; projects&lt;br&gt;name&lt;br&gt;api_key_hash (unique)&lt;br&gt;created_at&lt;br&gt;updated_at&lt;br&gt;deleted_at (soft delete)&lt;br&gt;&lt;br&gt;Unique: (id, project_id)" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="devices">
+          <mxGeometry y="32" width="270" height="203" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="data_channels" value="DATA_CHANNELS" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#6eaed2;strokeColor=#2f6d8d;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1040" width="310" height="250" as="geometry"/>
+        </mxCell>
+        <mxCell id="data_channels_body" value="&lt;b&gt;PK&lt;/b&gt; id&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; device_id -&gt; devices&lt;br&gt;name&lt;br&gt;channel_type [numeric/boolean/geo/image/text]&lt;br&gt;unit (nullable)&lt;br&gt;created_at&lt;br&gt;updated_at&lt;br&gt;&lt;br&gt;Unique: (device_id, name)&lt;br&gt;Unique: (id, device_id, channel_type)" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="data_channels">
+          <mxGeometry y="32" width="310" height="218" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="notification_channels" value="NOTIFICATION_CHANNELS" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#f7b64a;strokeColor=#b26a00;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="415" width="330" height="265" as="geometry"/>
+        </mxCell>
+        <mxCell id="notification_channels_body" value="&lt;b&gt;PK&lt;/b&gt; id&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; project_id -&gt; projects&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; account_id -&gt; project_members&lt;br&gt;name&lt;br&gt;type [telegram/email/webhook]&lt;br&gt;config JSONB (encrypted)&lt;br&gt;created_at&lt;br&gt;updated_at&lt;br&gt;deleted_at (soft delete)&lt;br&gt;&lt;br&gt;Unique: (id, project_id)" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="notification_channels">
+          <mxGeometry y="32" width="330" height="233" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="alert_rules" value="ALERT_RULES" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#e8665c;strokeColor=#9e2f2a;" vertex="1" parent="1">
+          <mxGeometry x="550" y="780" width="320" height="315" as="geometry"/>
+        </mxCell>
+        <mxCell id="alert_rules_body" value="&lt;b&gt;PK&lt;/b&gt; id&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; project_id -&gt; devices&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; device_id -&gt; devices&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; channel_id -&gt; data_channels&lt;br&gt;channel_type = numeric&lt;br&gt;operator [&gt; &lt; &gt;= &lt;= ==]&lt;br&gt;threshold_value&lt;br&gt;cooldown_seconds (minimal 1)&lt;br&gt;is_active&lt;br&gt;created_at&lt;br&gt;updated_at&lt;br&gt;&lt;br&gt;Unique: (id, project_id)" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="alert_rules">
+          <mxGeometry y="32" width="320" height="283" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="alert_rule_targets" value="ALERT_RULE_TARGETS" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#5cc9a7;strokeColor=#277d64;" vertex="1" parent="1">
+          <mxGeometry x="720" y="1170" width="335" height="180" as="geometry"/>
+        </mxCell>
+        <mxCell id="alert_rule_targets_body" value="&lt;b&gt;PK, FK&lt;/b&gt; alert_rule_id -&gt; alert_rules&lt;br&gt;&lt;b&gt;PK, FK&lt;/b&gt; notification_channel_id&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; project_id&lt;br&gt;&lt;br&gt;Menjaga rule dan channel&lt;br&gt;berada di project yang sama" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="alert_rule_targets">
+          <mxGeometry y="32" width="335" height="148" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="alert_history" value="ALERT_HISTORY" style="swimlane;horizontal=0;startSize=32;html=1;fontStyle=1;fontSize=15;align=center;verticalAlign=middle;fillColor=#ffffff;swimlaneFillColor=#bcbcbc;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="1010" width="320" height="245" as="geometry"/>
+        </mxCell>
+        <mxCell id="alert_history_body" value="&lt;b&gt;PK&lt;/b&gt; id&lt;br&gt;&lt;b&gt;FK&lt;/b&gt; alert_rule_id (nullable)&lt;br&gt;project_id&lt;br&gt;device_id&lt;br&gt;channel_id&lt;br&gt;value_at_trigger&lt;br&gt;rule_snapshot JSONB&lt;br&gt;triggered_at&lt;br&gt;&lt;br&gt;Rule dihapus -&gt; FK menjadi NULL" style="text;html=1;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;fontSize=12;" vertex="1" parent="alert_history">
+          <mxGeometry y="32" width="320" height="213" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e1" value="1 : N | account_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="accounts" target="project_members"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" value="1 : N | project_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="projects" target="project_members"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="1 : N | project_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="projects" target="devices"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" value="1 : N | device_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="devices" target="data_channels"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="FK komposit | (id, project_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="projects" target="alert_rules"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" value="FK komposit | (id, project_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="devices" target="alert_rules"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" value="FK komposit | (id, device_id, channel_type)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="data_channels" target="alert_rules"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" value="1 : N | project_id" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="projects" target="notification_channels"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="member only | (project_id, account_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="project_members" target="notification_channels"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" value="1 : N | (id, project_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="alert_rules" target="alert_rule_targets"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" value="1 : N | (id, project_id)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="notification_channels" target="alert_rule_targets"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" value="1 : N | ON DELETE SET NULL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="alert_rules" target="alert_history"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="legend" value="&lt;b&gt;Catatan:&lt;/b&gt; garis berlabel FK komposit berarti beberapa kolom bersama-sama divalidasi database. View active_alert_rules hanya memakai project/device aktif dan channel numeric." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;align=left;verticalAlign=middle;spacing=8;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="400" y="1380" width="1120" height="55" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

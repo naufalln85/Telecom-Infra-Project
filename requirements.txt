@@ -1,0 +1,95 @@
+# =============================================================================
+# REQUIREMENTS — IoT Platform TIP (Modul A Backend)
+# FastAPI + SQLAlchemy Async + Alembic
+#
+# Cara install:
+#   pip install -r requirements.txt
+#
+# Atau jika memakai virtual environment (SANGAT DISARANKAN untuk produksi):
+#   python -m venv .venv
+#   .venv\Scripts\activate          (Windows)
+#   source .venv/bin/activate       (Linux/Mac)
+#   pip install -r requirements.txt
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# CORE FRAMEWORK
+# -----------------------------------------------------------------------------
+# FastAPI: framework web async utama
+fastapi==0.111.1
+
+# Uvicorn: ASGI server untuk menjalankan FastAPI
+# [standard] = include WebSocket support + HTTP/2
+uvicorn[standard]==0.30.1
+
+# Gunicorn: process manager untuk multi-worker di production
+# Pakai bersama uvicorn: gunicorn -k uvicorn.workers.UvicornWorker
+gunicorn==22.0.0
+
+# -----------------------------------------------------------------------------
+# DATABASE — PostgreSQL async
+# -----------------------------------------------------------------------------
+# SQLAlchemy: ORM dan query builder (versi 2.x dengan async support)
+SQLAlchemy[asyncio]==2.0.30
+
+# asyncpg: driver PostgreSQL paling cepat untuk Python async
+# Dipakai oleh SQLAlchemy untuk koneksi runtime (bukan Alembic)
+asyncpg==0.29.0
+
+# psycopg2-binary: driver PostgreSQL SYNC
+# Dipakai oleh Alembic untuk menjalankan migrasi (Alembic belum native async)
+psycopg2-binary==2.9.9
+
+# Alembic: migration tool untuk SQLAlchemy
+alembic==1.13.1
+
+# -----------------------------------------------------------------------------
+# REDIS — Event Bus & Cache
+# -----------------------------------------------------------------------------
+# redis-py: official Redis client untuk Python
+# [hiredis]: parser C yang jauh lebih cepat dari Python parser bawaan
+# Kita pakai untuk: Redis Streams (event bus), cache auth, cooldown TTL
+redis[hiredis]==5.0.6
+
+# -----------------------------------------------------------------------------
+# AUTHENTICATION & SECURITY
+# -----------------------------------------------------------------------------
+# passlib: library hashing password — wrapper untuk bcrypt, argon2, dll
+# Kita pakai untuk hash password akun manusia (bcrypt — purposefully slow)
+passlib[bcrypt]==1.7.4
+
+# python-jose: implementasi JWT (JSON Web Token)
+# Kita pakai untuk generate dan verify access token setelah login
+python-jose[cryptography]==3.3.0
+
+# cryptography: dibutuhkan python-jose + bisa dipakai untuk enkripsi config notifikasi
+cryptography==42.0.8
+
+# python-multipart: dibutuhkan FastAPI untuk handle form data (upload, dll)
+python-multipart==0.0.9
+
+# -----------------------------------------------------------------------------
+# KONFIGURASI & ENVIRONMENT
+# -----------------------------------------------------------------------------
+# pydantic-settings: load .env file dengan type validation otomatis
+# Setiap variabel di .env.example akan di-validasi saat startup
+pydantic-settings==2.3.3
+
+# python-dotenv: load .env file ke environment (dipakai pydantic-settings)
+python-dotenv==1.0.1
+
+# -----------------------------------------------------------------------------
+# NOTIFICATION DISPATCHER (dipakai nanti di Tugas 5)
+# -----------------------------------------------------------------------------
+# httpx: HTTP client async untuk kirim webhook dan Telegram Bot API
+# Lebih baik dari requests karena mendukung async (tidak blocking)
+httpx==0.27.0
+
+# aiosmtplib: SMTP client async untuk kirim email
+aiosmtplib==3.0.1
+
+# -----------------------------------------------------------------------------
+# UTILITIES
+# -----------------------------------------------------------------------------
+# python-slugify: generate slug dari nama (berguna untuk nama project/device)
+python-slugify==8.0.4
