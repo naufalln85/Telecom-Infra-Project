@@ -57,6 +57,7 @@ redis[hiredis]==5.0.6
 # passlib: library hashing password — wrapper untuk bcrypt, argon2, dll
 # Kita pakai untuk hash password akun manusia (bcrypt — purposefully slow)
 passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
 
 # python-jose: implementasi JWT (JSON Web Token)
 # Kita pakai untuk generate dan verify access token setelah login
