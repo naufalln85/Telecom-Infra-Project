@@ -1,0 +1,58 @@
+[
+    {
+        "id": "e09fd673",
+        "filename": "model_clean.onnx",
+        "path": "uploads\\model_clean.onnx",
+        "status": "ready",
+        "uploaded_at": "2026-07-12 01:32:20"
+    },
+    {
+        "id": "363d8ea0",
+        "filename": "model_clean.onnx",
+        "path": "uploads\\model_clean.onnx",
+        "status": "ready",
+        "uploaded_at": "2026-07-12 01:36:24"
+    },
+    {
+        "id": "bcb4402f",
+        "filename": "model_clean.onnx",
+        "path": "uploads\\model_clean.onnx",
+        "status": "ready",
+        "uploaded_at": "2026-07-20 01:02:45"
+    },
+    {
+        "id": "ef033a57",
+        "filename": "model_clean.onnx",
+        "path": "uploads\\model_clean.onnx",
+        "status": "ready",
+        "uploaded_at": "2026-07-20 01:52:47"
+    },
+    {
+        "id": "2ae6bd43",
+        "filename": "model_clean.onnx",
+        "path": "uploads\\model_clean.onnx",
+        "status": "ready",
+        "uploaded_at": "2026-07-20 02:11:02"
+    },
+    {
+        "id": "a5d458da",
+        "filename": "model_timeseries.onnx",
+        "path": "uploads\\model_timeseries.onnx",
+        "status": "ready",
+        "uploaded_at": "2026-07-20 12:42:53"
+    },
+    {
+        "id": "82a50633",
+        "filename": "model_clean.onnx",
+        "path": "uploads\\model_clean.onnx",
+        "status": "ready",
+        "uploaded_at": "2026-07-20 16:48:10"
+    },
+    {
+        "id": "4ce1d8d7",
+        "filename": "model_timeseries.onnx",
+        "path": "uploads\\model_timeseries.onnx",
+        "status": "ready",
+        "uploaded_at": "2026-07-26 17:03:03"
+    }
+]

@@ -976,3 +976,54 @@ uvicorn demo_app.main:app --host 0.0.0.0 --port 8000 --reload
 
 *Panduan ini dibuat untuk project IoT Platform TIP — Modul A Infrastructure*
 *Stack: FastAPI + PostgreSQL 15 + TimescaleDB + Redis 7 + Alembic*
+
+Tentu, mari kita bahas kedua hal tersebut dengan detail agar Anda siap untuk menjelaskannya saat presentasi!
+
+1. Penjelasan Stack Teknologi & Mengapa Dipilih
+Inilah alasan utama di balik pemilihan stack teknologi pada Modul A. Ini sangat bagus untuk ditunjukkan kepada audiens untuk membuktikan bahwa arsitektur yang Anda bangun siap untuk production (skala besar):
+
+A. PostgreSQL 15 + TimescaleDB
+PostgreSQL 15: Berperan sebagai database relasional utama. Kita menggunakan versi 15 karena sangat stabil dan mendukung semua fitur modern seperti JSONB (untuk menyimpan konfigurasi dinamis) dan Partial Index (untuk memastikan email unik hanya pada akun yang aktif).
+TimescaleDB (Ekstensi): IoT selalu berurusan dengan data Time-Series (data runtun waktu seperti suhu tiap detik). TimescaleDB mengubah PostgreSQL biasa menjadi database time-series super cepat.
+Mengapa Dieksekusi? Daripada menggunakan dua database terpisah (misal: MySQL untuk relasi + InfluxDB untuk sensor), kita menyatukannya di PostgreSQL + TimescaleDB. Ini membuat sistem lebih mudah di-maintain, query JOIN bisa dilakukan secara langsung, dan konsistensi data lebih terjamin.
+B. Redis 7
+Fungsi 1 (Cache Autentikasi): Setiap detik, ribuan sensor akan mengirim data. Jika kita mengecek API Key ke PostgreSQL setiap detik, database akan kelebihan beban (overload). Redis bertindak sebagai cache (penyimpanan di memori RAM yang super cepat) untuk menyimpan status autentikasi perangkat.
+Fungsi 2 (Anti-Spam Cooldown): Jika sensor suhu melebihi batas, alert akan terpicu. Tanpa Redis, sistem bisa mengirim ribuan email notifikasi dalam semenit. Kita menggunakan fitur TTL (Time-to-Live) Redis untuk memberikan cooldown (misal: jeda 5 menit sebelum alert berikutnya dikirim).
+Mengapa Dieksekusi? Kecepatan dan perlindungan dari Spam/Overload. Redis merespons dalam hitungan milidetik.
+C. FastAPI + Alembic
+FastAPI: Framework Python modern untuk membuat REST API. Sangat cepat (mendekati NodeJS dan Go) dan otomatis menghasilkan dokumentasi API (Swagger UI).
+Alembic: Tool untuk Database Migration.
+Mengapa Dieksekusi? Di dunia nyata, struktur database sering berubah (tambah tabel, tambah kolom). Tanpa Alembic, mengubah skema database secara manual sangat berisiko. Alembic memungkinkan kita melakukan "version control" untuk skema database, sehingga jika ada kesalahan (bug), kita bisa me-rollback database ke versi sebelumnya dengan aman.
+2. Apakah Auth Dasar (Login, Register, Logout) Sudah Tercakup?
+Ya, sepenuhnya tercakup!
+
+Berdasarkan dokumen spesifikasi API (api_spec.md), kita memiliki sistem autentikasi modern berbasis JWT (JSON Web Token):
+
+Register (POST /api/v1/auth/register): Membuat akun baru. Password otomatis dienkripsi (di-hash) menggunakan algoritma bcrypt sebelum disimpan ke database (tidak ada password plain-text).
+Login (POST /api/v1/auth/login): Memverifikasi email dan password, lalu menghasilkan Token JWT yang digunakan sebagai "kunci akses" ke API lainnya.
+Logout: Pada arsitektur JWT stateless, proses logout biasanya dilakukan di sisi Frontend (Klien) dengan cara menghapus Token JWT dari penyimpanan lokal (Local Storage/Cookies).
+(Nilai plus untuk presentasi: Berkat fitur Partial Index di database, jika akun "Budi" dihapus (Soft Delete), ada orang lain bernama "Budi" yang bisa mendaftar ulang dengan email yang sama tanpa menyebabkan bentrok di database).
+
+3. API Apa Saja yang Tersedia Selain Auth?
+Sistem ini sudah memiliki ekosistem API yang sangat lengkap untuk mengelola seluruh platform IoT. Berikut adalah kelompok API utamanya:
+
+A. Manajemen Proyek (Tenant)
+Buat Proyek Baru (POST /api/v1/projects)
+Lihat Daftar Proyek (GET /api/v1/projects)
+Ubah Nama Proyek (PUT /api/v1/projects/{projectId})
+Hapus Proyek (Soft Delete) (DELETE /api/v1/projects/{projectId}) -> Ingat, trigger database otomatis akan men-soft-delete semua perangkat di dalam proyek ini juga!
+B. Manajemen Perangkat & Sensor (Devices & Channels)
+Daftar Perangkat Baru (POST /api/v1/projects/{projectId}/devices) -> Mengembalikan API Key.
+Lihat Perangkat (GET /api/v1/projects/{projectId}/devices)
+Hapus Perangkat (DELETE /api/v1/projects/{projectId}/devices/{deviceId})
+Tambah Sensor/Channel ke Perangkat (POST /api/v1/devices/{deviceId}/channels) -> Misal: Sensor Suhu, Sensor Kelembapan.
+Lihat Daftar Sensor Perangkat (GET /api/v1/devices/{deviceId}/channels)
+C. Manajemen Notifikasi (Notification Channels)
+Tambah Saluran Notif (POST /api/v1/projects/{projectId}/notifications/channels) -> Mendukung Telegram, Email, Webhook.
+Hapus Saluran Notif (DELETE /api/v1/projects/{projectId}/notifications/channels/{channelId})
+D. Mesin Peringatan Dini (Alert Rules & History)
+Buat Aturan Alarm (POST /api/v1/projects/{projectId}/rules) -> Misal: "Jika Suhu > 35 derajat, kirim ke Telegram, cooldown 5 menit".
+Lihat Aturan Aktif (GET /api/v1/projects/{projectId}/rules)
+Matikan/Nyalakan Aturan (PATCH /api/v1/projects/{projectId}/rules/{ruleId})
+Lihat Riwayat Alarm (GET /api/v1/projects/{projectId}/alerts/history) -> Menampilkan histori kapan saja alarm pernah berbunyi, anti-manipulasi berkat trigger.
+Jika saat presentasi mereka bertanya, "Bagaimana cara Modul Dashboard (Modul C) menampilkan data?", Anda bisa menjawab: "Cukup panggil API GET kami, dan datanya sudah dikembalikan dalam format JSON yang bersih dan tervalidasi secara relasional!"

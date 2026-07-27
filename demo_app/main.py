@@ -49,11 +49,22 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
+from fastapi.middleware.cors import CORSMiddleware
+
 # Setup FastAPI App
 app = FastAPI(
     title="IoT Platform TIP - Demo Skema & Trigger Modul A",
     description="Aplikasi web sederhana untuk membuktikan jalannya database, triggers, views, dan cooldown Redis.",
     version="1.0.0"
+)
+
+# Enable CORS for Frontend Vite dev server
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Dependency untuk mendapatkan Database Session
@@ -112,6 +123,12 @@ class AlertRuleCreate(BaseModel):
     threshold_value: float
     cooldown_seconds: int
     notification_channel_name: str
+
+class NotificationChannelCreate(BaseModel):
+    project_id: int
+    name: str
+    type: str = "telegram"
+    config: Optional[dict] = None
 
 class SensorPayload(BaseModel):
     device_id: int
@@ -608,6 +625,161 @@ async def soft_delete_account(account_id: int, db: AsyncSession = Depends(get_db
         return {"status": "success", "message": f"Akun {row[1]} berhasil di-soft-delete."}
     except Exception as e:
         await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# =============================================================================
+# V1 REST API ENDPOINTS (MODUL A API SPECIFICATION)
+# =============================================================================
+
+@app.get("/api/v1/projects")
+async def list_v1_projects(db: AsyncSession = Depends(get_db)):
+    try:
+        result = await db.execute(text("""
+            SELECT id, name, created_at, deleted_at
+            FROM projects
+            WHERE deleted_at IS NULL
+            ORDER BY id ASC;
+        """))
+        projects = [dict(zip(result.keys(), row)) for row in result.fetchall()]
+        return {"data": projects}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/projects", status_code=status.HTTP_201_CREATED)
+async def create_v1_project(payload: dict, db: AsyncSession = Depends(get_db)):
+    name = payload.get("name")
+    if not name or len(name) < 3:
+        raise HTTPException(status_code=400, detail="Nama project minimal 3 karakter.")
+    try:
+        res = await db.execute(text("""
+            INSERT INTO projects (name) VALUES (:name) RETURNING id, name, created_at;
+        """), {"name": name})
+        row = res.fetchone()
+        await db.commit()
+        return {
+            "message": "Proyek berhasil dibuat",
+            "data": {"id": row[0], "name": row[1], "role_saya": "owner", "created_at": row[2].isoformat()}
+        }
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/v1/projects/{project_id}")
+async def delete_v1_project(project_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        res = await db.execute(text("""
+            UPDATE projects SET deleted_at = now() WHERE id = :id AND deleted_at IS NULL RETURNING id;
+        """), {"id": project_id})
+        if not res.fetchone():
+            raise HTTPException(status_code=404, detail="Proyek tidak ditemukan.")
+        await db.commit()
+        return {"message": "Proyek dipindahkan ke recycle bin."}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/projects/{project_id}/devices")
+async def list_v1_devices(project_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        res = await db.execute(text("""
+            SELECT id, name, project_id, created_at FROM devices WHERE project_id = :pid AND deleted_at IS NULL;
+        """), {"pid": project_id})
+        devices = [dict(zip(res.keys(), row)) for row in res.fetchall()]
+        return {"data": devices}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/projects/{project_id}/devices", status_code=status.HTTP_201_CREATED)
+async def create_v1_device(project_id: int, payload: dict, db: AsyncSession = Depends(get_db)):
+    name = payload.get("name", "New Sensor Node")
+    import hashlib
+    raw_api_key = f"tip_live_{os.urandom(12).hex()}"
+    key_hash = hashlib.sha256(raw_api_key.encode()).hexdigest()
+    try:
+        res = await db.execute(text("""
+            INSERT INTO devices (project_id, name, api_key_hash) VALUES (:pid, :name, :hash) RETURNING id, name, created_at;
+        """), {"pid": project_id, "name": name, "hash": key_hash})
+        row = res.fetchone()
+        await db.commit()
+        return {
+            "message": "Perangkat berhasil didaftarkan.",
+            "data": {"id": row[0], "name": row[1], "api_key": raw_api_key}
+        }
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/devices/{device_id}/channels")
+async def list_v1_channels(device_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        res = await db.execute(text("""
+            SELECT id, device_id, name, channel_type, unit FROM data_channels WHERE device_id = :did;
+        """), {"did": device_id})
+        channels = [dict(zip(res.keys(), row)) for row in res.fetchall()]
+        return {"data": channels}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/v1/devices/{device_id}/channels", status_code=status.HTTP_201_CREATED)
+async def create_v1_channel(device_id: int, payload: dict, db: AsyncSession = Depends(get_db)):
+    name = payload.get("name")
+    ch_type = payload.get("channel_type", "numeric")
+    unit = payload.get("unit")
+    try:
+        res = await db.execute(text("""
+            INSERT INTO data_channels (device_id, name, channel_type, unit)
+            VALUES (:did, :name, :type, :unit)
+            RETURNING id, device_id, name, channel_type, unit;
+        """), {"did": device_id, "name": name, "type": ch_type, "unit": unit})
+        row = res.fetchone()
+        await db.commit()
+        return {
+            "message": "Kanal sensor berhasil ditambahkan",
+            "data": {"id": row[0], "device_id": row[1], "name": row[2], "channel_type": row[3], "unit": row[4]}
+        }
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/projects/{project_id}/rules")
+async def list_v1_rules(project_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        res = await db.execute(text("""
+            SELECT ar.id, d.name as device_name, dc.name as channel_name, ar.operator, ar.threshold_value, ar.cooldown_seconds, ar.is_active
+            FROM alert_rules ar
+            JOIN devices d ON d.id = ar.device_id
+            JOIN data_channels dc ON dc.id = ar.channel_id
+            WHERE ar.project_id = :pid;
+        """), {"pid": project_id})
+        rules = [dict(zip(res.keys(), row)) for row in res.fetchall()]
+        return {"data": rules}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/projects/{project_id}/alerts/history")
+async def list_v1_alert_history(project_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        res = await db.execute(text("""
+            SELECT id as history_id, alert_rule_id, device_id, channel_id, value_at_trigger, rule_snapshot, triggered_at
+            FROM alert_history
+            WHERE project_id = :pid
+            ORDER BY triggered_at DESC
+            LIMIT 50;
+        """), {"pid": project_id})
+        history = [dict(zip(res.keys(), row)) for row in res.fetchall()]
+        return {"data": history}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/v1/projects/{project_id}/notifications/channels")
+async def list_v1_notif_channels(project_id: int, db: AsyncSession = Depends(get_db)):
+    try:
+        res = await db.execute(text("""
+            SELECT id, project_id, name, type, config, created_at FROM notification_channels WHERE project_id = :pid AND deleted_at IS NULL;
+        """), {"pid": project_id})
+        notifs = [dict(zip(res.keys(), row)) for row in res.fetchall()]
+        return {"data": notifs}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Serves dashboard index.html frontend

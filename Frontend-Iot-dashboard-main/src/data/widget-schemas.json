@@ -1,0 +1,188 @@
+[
+  {
+    "type": "status",
+    "label": "Value Display",
+    "icon": "📟",
+    "description": "Displays numerical sensor value (e.g. Temperature, Humidity)",
+    "fields": [
+      {
+        "key": "title",
+        "label": "Nama Widget",
+        "placeholder": "e.g., Temperature",
+        "required": true
+      },
+      {
+        "key": "deviceId",
+        "label": "Device ID",
+        "placeholder": "e.g., esp32-01",
+        "required": true
+      },
+      {
+        "key": "channel",
+        "label": "Channel Data",
+        "placeholder": "e.g., temperature",
+        "required": true
+      },
+      {
+        "key": "unit",
+        "label": "Satuan",
+        "placeholder": "e.g., °C",
+        "required": false
+      }
+    ]
+  },
+  {
+    "type": "boolean",
+    "label": "Switch Button",
+    "icon": "🔌",
+    "description": "Toggle button to control actuators (e.g. Pump, Relay)",
+    "fields": [
+      {
+        "key": "title",
+        "label": "Nama Widget",
+        "placeholder": "e.g., Water Pump",
+        "required": true
+      },
+      {
+        "key": "deviceId",
+        "label": "Device ID",
+        "placeholder": "e.g., esp32-01",
+        "required": true
+      },
+      {
+        "key": "channel",
+        "label": "Channel Data",
+        "placeholder": "e.g., pump",
+        "required": true
+      }
+    ]
+  },
+  {
+    "type": "gauge",
+    "label": "Radial Gauge",
+    "icon": "🧭",
+    "description": "Radial dial visualization for ranges (e.g. 0-50)",
+    "fields": [
+      {
+        "key": "title",
+        "label": "Nama Widget",
+        "placeholder": "e.g., Temperature Gauge",
+        "required": true
+      },
+      {
+        "key": "deviceId",
+        "label": "Device ID",
+        "placeholder": "e.g., esp32-01",
+        "required": true
+      },
+      {
+        "key": "channel",
+        "label": "Channel Data",
+        "placeholder": "e.g., temperature",
+        "required": true
+      },
+      {
+        "key": "unit",
+        "label": "Satuan",
+        "placeholder": "e.g., °C",
+        "required": true
+      }
+    ]
+  },
+  {
+    "type": "chart",
+    "label": "Super Chart",
+    "icon": "📈",
+    "description": "Time-series line graph of historical sensor data",
+    "fields": [
+      {
+        "key": "title",
+        "label": "Nama Widget",
+        "placeholder": "e.g., Temperature Chart",
+        "required": true
+      },
+      {
+        "key": "deviceId",
+        "label": "Device ID",
+        "placeholder": "e.g., esp32-01",
+        "required": true
+      },
+      {
+        "key": "channel",
+        "label": "Channel Data",
+        "placeholder": "e.g., temperature",
+        "required": true
+      },
+      {
+        "key": "unit",
+        "label": "Satuan",
+        "placeholder": "e.g., °C",
+        "required": false
+      }
+    ]
+  },
+  {
+    "type": "map",
+    "label": "Device Location (Map)",
+    "icon": "🗺️",
+    "description": "Displays device GPS location marker on a map",
+    "fields": [
+      {
+        "key": "title",
+        "label": "Nama Widget",
+        "placeholder": "e.g., Device Location",
+        "required": true
+      },
+      {
+        "key": "deviceId",
+        "label": "Device ID",
+        "placeholder": "e.g., esp32-01",
+        "required": true
+      },
+      {
+        "key": "config.latChannel",
+        "label": "Latitude Channel",
+        "placeholder": "e.g., latitude",
+        "required": true
+      },
+      {
+        "key": "config.lngChannel",
+        "label": "Longitude Channel",
+        "placeholder": "e.g., longitude",
+        "required": true
+      }
+    ]
+  },
+  {
+    "type": "image",
+    "label": "Camera Feed / AI Image",
+    "icon": "📷",
+    "description": "Displays camera image classification or visual feedback",
+    "fields": [
+      {
+        "key": "title",
+        "label": "Nama Widget",
+        "placeholder": "e.g., Camera Feed",
+        "required": true
+      },
+      {
+        "key": "deviceId",
+        "label": "Device ID",
+        "placeholder": "e.g., esp32-01",
+        "required": true
+      },
+      {
+        "key": "config.imageChannel",
+        "label": "Image URL Channel",
+        "placeholder": "e.g., image",
+        "required": true
+      },
+      {
+        "key": "config.labelChannel",
+        "label": "Classification Label Channel",
+        "placeholder": "e.g., label",
+        "required": true
+      }
+    ]
+  }
+]
