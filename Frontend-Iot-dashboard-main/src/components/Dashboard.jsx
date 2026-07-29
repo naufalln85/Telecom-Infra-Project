@@ -17,6 +17,7 @@ import AnalyticsView from "./views/AnalyticsView";
 import SettingsView from "./views/SettingsView";
 import AlertsView from "./views/AlertsView";
 import AdminPanelView from "./views/AdminPanelView";
+import GatewayView from "./views/GatewayView";
 
 import socket from "../socket";
 import confetti from "canvas-confetti";
@@ -47,7 +48,8 @@ import {
   KeyRound,
   ShieldCheck,
   Sun,
-  Moon
+  Moon,
+  Radio
 } from "lucide-react";
 
 const COLS = 12;
@@ -495,6 +497,15 @@ function Dashboard() {
 
           <button
             type="button"
+            className={`nav-tab-item ${activeTab === "gateway" ? "active" : ""}`}
+            onClick={() => { setActiveTab("gateway"); triggerSound(); }}
+          >
+            <Radio size={15} />
+            Gateway
+          </button>
+
+          <button
+            type="button"
             className={`nav-tab-item ${activeTab === "settings" ? "active" : ""}`}
             onClick={() => { setActiveTab("settings"); triggerSound(); }}
           >
@@ -825,6 +836,8 @@ function Dashboard() {
       {activeTab === "settings" && <SettingsView userAccount={userAccount} />}
 
       {activeTab === "admin" && <AdminPanelView userAccount={userAccount} />}
+
+      {activeTab === "gateway" && <GatewayView />}
 
       {/* GRAFANA WIDGET BUILDER MODAL */}
       {isBuilderOpen && (

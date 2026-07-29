@@ -145,6 +145,41 @@ services:
     networks:
       - iot_platform_net
 
+  # ---------------------------------------------------------------------------
+  # IOT GATEWAY: Multi-Protocol Ingestion (HTTP + MQTT + CoAP) — Modul B
+  # ---------------------------------------------------------------------------
+  iot-gateway:
+    build:
+      context: ./iot-gateway
+      dockerfile: Dockerfile
+    container_name: tip_iot_gateway
+    restart: unless-stopped
+
+    ports:
+      - "${GATEWAY_HTTP_PORT:-3000}:3000"       # HTTP Telemetry Ingestion
+      - "${GATEWAY_MQTT_PORT:-1884}:1884"       # MQTT Broker (Aedes)
+      - "${GATEWAY_COAP_PORT:-5683}:5683/udp"   # CoAP UDP Server
+
+    environment:
+      BACKEND_URL: http://backend:8000/api/v1/save-data
+      GATEWAY_HTTP_PORT: 3000
+      GATEWAY_MQTT_PORT: 1884
+      GATEWAY_COAP_PORT: 5683
+
+    depends_on:
+      backend:
+        condition: service_started
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    networks:
+      - iot_platform_net
+
 # =============================================================================
 # VOLUMES
 # =============================================================================

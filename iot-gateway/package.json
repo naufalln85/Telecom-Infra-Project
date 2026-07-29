@@ -1,0 +1,20 @@
+{
+  "name": "iot-gateway",
+  "version": "1.0.0",
+  "description": "IoT Protocol Gateway — Multi-Protocol Ingestion (HTTP, MQTT, CoAP) untuk Platform TIP Modul B",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "aedes": "^0.51.3",
+    "coap": "^1.4.0",
+    "axios": "^1.7.7",
+    "ajv": "^8.17.1"
+  },
+  "keywords": ["iot", "gateway", "mqtt", "coap", "http", "telemetry"],
+  "author": "TIP Modul B Team",
+  "license": "MIT"
+}

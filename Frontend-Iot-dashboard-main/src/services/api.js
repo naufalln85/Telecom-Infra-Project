@@ -138,3 +138,34 @@ export const dashboardAPI = {
     });
   },
 };
+
+export const gatewayAPI = {
+  async getLogs(limit = 50) {
+    return await apiFetch(`/api/v1/gateway/logs?limit=${limit}`);
+  },
+
+  async getStats() {
+    return await apiFetch("/api/v1/gateway/stats");
+  },
+
+  async sendTestData(apiKey, deviceId, temperature, humidity) {
+    // Kirim data test langsung ke HTTP gateway endpoint
+    const GATEWAY_URL = window.location.hostname === "localhost"
+      ? "http://localhost:3000"
+      : `http://${window.location.hostname}:3000`;
+
+    const response = await fetch(`${GATEWAY_URL}/api/v1/telemetry`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        device_id: deviceId,
+        temperature: parseFloat(temperature),
+        humidity: parseFloat(humidity),
+      }),
+    });
+    return await response.json();
+  },
+};

@@ -782,6 +782,184 @@ async def list_v1_notif_channels(project_id: int, db: AsyncSession = Depends(get
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# =============================================================================
+# MODUL B INTEGRATION — IoT Gateway Endpoints
+# =============================================================================
+# Endpoint ini menerima data dari IoT Protocol Gateway (Node.js - Modul B)
+# yang mengirim data telemetri melalui HTTP, MQTT, atau CoAP.
+
+# In-memory telemetry log (untuk demo & monitoring dashboard)
+# Di produksi, ini bisa diganti dengan tabel TimescaleDB
+_telemetry_log = []
+_gateway_stats = {"HTTP": 0, "MQTT": 0, "CoAP": 0, "total": 0, "errors": 0}
+
+class GatewayPayload(BaseModel):
+    protocol: str
+    api_key: str
+    data: dict
+
+@app.post("/api/v1/save-data")
+async def save_gateway_data(payload: GatewayPayload, db: AsyncSession = Depends(get_db), redis_client = Depends(get_redis)):
+    """
+    Endpoint penerima data dari IoT Gateway (Modul B).
+    
+    Flow:
+    1. Terima payload dari gateway (protocol, api_key, data)
+    2. Hash api_key dengan SHA-256 dan cocokkan dengan devices.api_key_hash
+    3. Simpan data telemetri ke log
+    4. Evaluasi alert rules jika ada channel yang cocok
+    """
+    import hashlib
+    
+    protocol = payload.protocol.upper()
+    api_key = payload.api_key
+    telemetry_data = payload.data
+    
+    # 1. Validasi API Key — hash dengan SHA-256 dan cari di database
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    
+    try:
+        result = await db.execute(
+            text("""
+                SELECT d.id, d.name, d.project_id 
+                FROM devices d 
+                WHERE d.api_key_hash = :hash AND d.deleted_at IS NULL
+            """),
+            {"hash": key_hash}
+        )
+        device = result.fetchone()
+    except Exception as e:
+        _gateway_stats["errors"] += 1
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    
+    if not device:
+        _gateway_stats["errors"] += 1
+        raise HTTPException(
+            status_code=401,
+            detail=f"Unauthorized: API Key tidak ditemukan di database (hash: {key_hash[:16]}...)"
+        )
+    
+    device_id_db, device_name, project_id = device
+    
+    # 2. Log telemetri masuk
+    log_entry = {
+        "id": _gateway_stats["total"] + 1,
+        "protocol": protocol,
+        "device_id": device_id_db,
+        "device_name": device_name,
+        "project_id": project_id,
+        "data": telemetry_data,
+        "api_key_prefix": api_key[:8] + "...",
+        "received_at": datetime.now(timezone.utc).isoformat()
+    }
+    _telemetry_log.append(log_entry)
+    
+    # Batasi log ke 200 entri terbaru (in-memory ring buffer)
+    if len(_telemetry_log) > 200:
+        _telemetry_log.pop(0)
+    
+    # Update stats per protokol
+    if protocol in _gateway_stats:
+        _gateway_stats[protocol] += 1
+    _gateway_stats["total"] += 1
+    
+    logger.info(f"[Gateway → Backend] {protocol} | Device: {device_name} (ID:{device_id_db}) | Data: {telemetry_data}")
+    
+    # 3. Evaluasi Alert Rules (jika ada channel yang cocok)
+    alert_result = None
+    if "temperature" in telemetry_data:
+        try:
+            # Cari rule aktif untuk device ini pada channel temperature
+            query = text("""
+                SELECT ar.id, ar.project_id, ar.operator, ar.threshold_value, ar.cooldown_seconds
+                FROM active_alert_rules ar
+                JOIN data_channels dc ON dc.id = ar.channel_id
+                WHERE ar.device_id = :device_id AND dc.name = 'temperature'
+            """)
+            rule_result = await db.execute(query, {"device_id": device_id_db})
+            rule = rule_result.fetchone()
+            
+            if rule:
+                rule_id, _, operator, threshold_value, cooldown_seconds = rule
+                value = float(telemetry_data["temperature"])
+                
+                # Evaluasi threshold
+                triggered = False
+                if operator == ">" and value > threshold_value: triggered = True
+                elif operator == "<" and value < threshold_value: triggered = True
+                elif operator == ">=" and value >= threshold_value: triggered = True
+                elif operator == "<=" and value <= threshold_value: triggered = True
+                elif operator == "==" and value == threshold_value: triggered = True
+                
+                if triggered:
+                    # Cek cooldown Redis
+                    cooldown_key = f"alert:cooldown:{rule_id}"
+                    cooldown_set = await redis_client.set(cooldown_key, 1, ex=cooldown_seconds, nx=True)
+                    
+                    if cooldown_set:
+                        # Insert ke alert_history (trigger DB akan mengisi snapshot)
+                        insert_q = text("""
+                            INSERT INTO alert_history (alert_rule_id, value_at_trigger)
+                            VALUES (:rule_id, :value)
+                            RETURNING id;
+                        """)
+                        hist_res = await db.execute(insert_q, {"rule_id": rule_id, "value": value})
+                        await db.commit()
+                        alert_result = {"triggered": True, "rule_id": rule_id, "history_id": hist_res.fetchone()[0]}
+                        logger.info(f"[Alert Engine] 🚨 Alert TRIGGERED! Rule {rule_id}, Value: {value} {operator} {threshold_value}")
+                    else:
+                        ttl = await redis_client.ttl(cooldown_key)
+                        alert_result = {"triggered": True, "cooldown": True, "ttl": ttl}
+        except Exception as e:
+            logger.error(f"[Alert Engine] Error evaluating rules: {str(e)}")
+    
+    return {
+        "status": "success",
+        "protocol": protocol,
+        "device": {"id": device_id_db, "name": device_name, "project_id": project_id},
+        "data_received": telemetry_data,
+        "alert": alert_result,
+        "message": f"Data telemetri dari {device_name} berhasil diterima via {protocol}"
+    }
+
+
+@app.get("/api/v1/gateway/logs")
+async def get_gateway_logs(limit: int = 50):
+    """Ambil log telemetri terbaru yang masuk via IoT Gateway."""
+    return {
+        "data": list(reversed(_telemetry_log[-limit:])),
+        "total": len(_telemetry_log),
+        "stats": _gateway_stats
+    }
+
+
+@app.get("/api/v1/gateway/stats")
+async def get_gateway_stats():
+    """Ambil statistik penggunaan IoT Gateway per protokol."""
+    return {
+        "stats": _gateway_stats,
+        "protocols": {
+            "HTTP": {
+                "port": 3000,
+                "endpoint": "POST /api/v1/telemetry",
+                "count": _gateway_stats["HTTP"]
+            },
+            "MQTT": {
+                "port": 1884,
+                "topic": "telemetry/data",
+                "count": _gateway_stats["MQTT"]
+            },
+            "CoAP": {
+                "port": 5683,
+                "resource": "POST /telemetry",
+                "count": _gateway_stats["CoAP"]
+            }
+        },
+        "total": _gateway_stats["total"],
+        "errors": _gateway_stats["errors"]
+    }
+
+
 # Serves dashboard index.html frontend
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
