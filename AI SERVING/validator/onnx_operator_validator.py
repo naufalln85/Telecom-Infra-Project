@@ -89,12 +89,13 @@ OPERATOR_WHITELIST = {
 
     # --- Tipe data ---
     "Cast", "CastLike",
+    "LinearClassifier", "Normalizer", "ZipMap",
 }
 
 # Domain operator yang diizinkan. "" = domain default ONNX (ai.onnx).
 # Domain lain (mis. custom domain vendor, domain eksekusi Python custom)
 # DITOLAK karena itu jalur untuk custom-op di luar kendali whitelist.
-ALLOWED_DOMAINS = {"", "ai.onnx"}
+ALLOWED_DOMAINS = {"", "ai.onnx", "ai.onnx.ml"}
 
 
 class ValidationResult:

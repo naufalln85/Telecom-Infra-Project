@@ -1,17 +1,12 @@
-# container_app/app.py
-"""
-Server sandbox generik: mendengarkan Unix socket, terima {model_path, input},
-jalankan inference, balikin hasil. Model_path merujuk ke file yang sudah
-di-mount read-only ke dalam container (bukan disertakan dalam image).
-"""
 import socket
-import os
 import json
 import time
+import traceback
 import numpy as np
 import onnxruntime as ort
 
-SOCKET_PATH = "/sandbox/sock/inference.sock"
+HOST = "0.0.0.0"
+PORT = 9000
 
 
 def handle_request(request: dict) -> dict:
@@ -33,25 +28,24 @@ def handle_request(request: dict) -> dict:
             "processing_time_ms": int((time.time() - start) * 1000),
         }
     except Exception as e:
-        return {
-            "success": False,
-            "message": str(e),
-            "processing_time_ms": int((time.time() - start) * 1000),
-        }
+        print(f"[sandbox] ERROR: {e}", flush=True)
+        traceback.print_exc()
+        return {"success": False, "message": str(e), "processing_time_ms": int((time.time() - start) * 1000)}
 
 
 def main():
-    os.makedirs(os.path.dirname(SOCKET_PATH), exist_ok=True)
-    if os.path.exists(SOCKET_PATH):
-        os.remove(SOCKET_PATH)
-
-    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    server.bind(SOCKET_PATH)
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind((HOST, PORT))
     server.listen(5)
-    print(f"[sandbox] Mendengarkan di {SOCKET_PATH}", flush=True)
+    print(f"[sandbox] Mendengarkan di {HOST}:{PORT}", flush=True)
 
     while True:
-        conn, _ = server.accept()
+        try:
+            conn, addr = server.accept()
+        except Exception as e:
+            print(f"[sandbox] ERROR accept: {e}", flush=True)
+            continue
         try:
             data = b""
             while True:
@@ -65,7 +59,8 @@ def main():
             response = handle_request(request)
             conn.sendall((json.dumps(response) + "\n").encode())
         except Exception as e:
-            conn.sendall((json.dumps({"success": False, "message": f"Socket error: {e}"}) + "\n").encode())
+            print(f"[sandbox] ERROR proses koneksi: {e}", flush=True)
+            traceback.print_exc()
         finally:
             conn.close()
 

@@ -1,9 +1,20 @@
+from app.external.core_backend_client_mock import get_account_tier, validate_channel
+from app.db.result_service import save_result
 from app.registry.registry_service import get_model_by_id
 from app.sandbox.sandbox_service import run_in_sandbox
 
+def predict(model_id, input_data, project_id=None, device_id=None, channel_id=None):
+    tier = "free"
+    if project_id is not None:
+        tier = get_account_tier(project_id)
 
-def predict(model_id, input_data):
-
+        if device_id is not None and channel_id is not None:
+            channel_check = validate_channel(project_id, device_id, channel_id)
+            if not channel_check["valid"]:
+                return {
+                    "success": False,
+                    "message": f"Channel {channel_id} tidak valid untuk device {device_id} di project {project_id}"
+                }
     model = get_model_by_id(model_id)
     if model is None:
         return {
@@ -82,18 +93,22 @@ def predict(model_id, input_data):
             reshaped_input.tolist()   # kirim sebagai nested list ke sandbox
         )
 
-        return {
+        result = {
             "success":        True,
             "model_id":       model_id,
             "input_shape":    list(reshaped_input.shape),
-            "prediction":     prediction[0].tolist()
+            "prediction":     prediction[0]
         }
+        save_result(model_id, result)
+        return result
 
     except Exception as e:
-        return {
+        result = {
             "success":              False,
             "model_id":             model_id,
             "message":              str(e),
             "expected_input_shape": expected_shape,
             "expected_input_type":  expected_type
-        }
+        }
+        save_result(model_id, result)
+        return result

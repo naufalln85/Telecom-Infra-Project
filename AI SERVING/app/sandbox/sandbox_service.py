@@ -3,23 +3,18 @@ import socket
 import json
 import os
 
-SOCKET_PATH = os.path.abspath("sandbox_sock/inference.sock")
+SANDBOX_HOST = "127.0.0.1"
+SANDBOX_PORT = 9000
 
 
 def run_in_sandbox(model_path, input_name, output_name, input_data):
-    """
-    Kirim request inference ke sandbox generik lewat Unix socket.
-    model_path di sini harus path ABSOLUT di HOST (misal 'uploads/model_x.onnx'),
-    lalu dikonversi ke path DI DALAM container (karena folder uploads di-mount
-    ke /sandbox/models).
-    """
     filename = os.path.basename(model_path)
     model_path_in_container = f"/sandbox/models/{filename}"
 
-    client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    client.settimeout(5)
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    client.settimeout(10)
     try:
-        client.connect(SOCKET_PATH)
+        client.connect((SANDBOX_HOST, SANDBOX_PORT))
         request = json.dumps({"model_path": model_path_in_container, "input": input_data}) + "\n"
         client.sendall(request.encode())
 
@@ -36,10 +31,8 @@ def run_in_sandbox(model_path, input_name, output_name, input_data):
         if not response.get("success"):
             raise RuntimeError(response.get("message", "Inference gagal di sandbox"))
 
-        # Kembalikan dalam format list mirip [array], supaya kompatibel
-        # dengan pemanggil lama yang expect prediction[0]
         return [response["prediction"]]
     except socket.timeout:
-        raise RuntimeError("Timeout menghubungi sandbox lewat socket.")
+        raise RuntimeError("Timeout menghubungi sandbox lewat TCP socket.")
     finally:
         client.close()

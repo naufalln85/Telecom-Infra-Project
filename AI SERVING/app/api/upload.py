@@ -22,5 +22,6 @@ def upload_model(file: UploadFile = File(...)):
         "status": "success",
         "validation": "passed",
         "model": result["model"],
-        "operators": result["operators"]
+        "operators": result["operators"],
+        "sandbox": result["sandbox"]
     }
