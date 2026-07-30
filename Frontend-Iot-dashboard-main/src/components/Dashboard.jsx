@@ -3,6 +3,7 @@ import ReactGridLayout, { useContainerWidth } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import "../App.css";
+
 import defaultWidgets from "../data/widgets.json";
 import WidgetRenderer from "./WidgetRenderer";
 import WidgetBuilder from "./WidgetBuilder";
@@ -11,6 +12,9 @@ import ProjectModal from "./ProjectModal";
 import { authAPI, projectsAPI, dashboardAPI } from "../services/api";
 
 // Sub-Views
+import LandingCoverView from "./views/LandingCoverView";
+import GetStartedView from "./views/GetStartedView";
+import DevicesView from "./views/DevicesView";
 import SensorsView from "./views/SensorsView";
 import ActuatorsView from "./views/ActuatorsView";
 import AnalyticsView from "./views/AnalyticsView";
@@ -22,62 +26,30 @@ import GatewayView from "./views/GatewayView";
 import socket from "../socket";
 import confetti from "canvas-confetti";
 import {
-  LayoutDashboard,
-  Cpu,
-  Bell,
-  Search,
-  Plus,
-  X,
-  Undo2,
-  Lock,
-  Unlock,
-  RotateCcw,
-  Zap,
-  Activity,
-  Layers,
-  ChevronDown,
-  Settings,
-  Sparkles,
-  Volume2,
-  VolumeX,
-  User,
-  LogOut,
-  LogIn,
-  Minimize2,
-  Maximize2,
-  KeyRound,
-  ShieldCheck,
-  Sun,
-  Moon,
-  Radio
+  LayoutDashboard, Cpu, Bell, Search, Plus, X, Undo2, Lock, Unlock,
+  RotateCcw, Zap, Activity, Layers, ChevronDown, Settings, Sparkles,
+  Volume2, VolumeX, User, LogOut, LogIn, Minimize2, Maximize2, KeyRound,
+  ShieldCheck, Sun, Moon, Radio, Star, Box, Sliders, ToggleLeft, Hash,
+  MapPin, Eye, Compass, Globe, HelpCircle, Megaphone, Users, Building,
+  Grid, ListFilter, Play, ArrowRight, MousePointerClick
 } from "lucide-react";
 
 const COLS = 12;
 const ROW_HEIGHT = 45;
 const GAP = 20;
 const UNDO_TIMEOUT = 6000;
+const WIDGETS_STORAGE_KEY = "tip-blynk-widgets-v2";
+const LAYOUT_STORAGE_KEY = "tip-blynk-layout-v2";
 
 const DEFAULT_SIZE = {
-  status: { w: 5, h: 5 },
+  status: { w: 4, h: 5 },
   gauge: { w: 3, h: 5 },
-  boolean: { w: 4, h: 5 },
+  boolean: { w: 4, h: 4 },
   chart: { w: 6, h: 6 },
-  calendar: { w: 6, h: 6 },
+  calendar: { w: 6, h: 5 },
   map: { w: 6, h: 6 },
   image: { w: 6, h: 6 },
 };
-
-const INITIAL_LAYOUT = {
-  node_overview: { x: 0, y: 0, w: 5, h: 5 },
-  soil_gauge: { x: 5, y: 0, w: 3, h: 5 },
-  actuator_task: { x: 8, y: 0, w: 4, h: 5 },
-  telemetry_chart: { x: 0, y: 5, w: 6, h: 6 },
-  activity_calendar: { x: 6, y: 5, w: 6, h: 6 },
-  device_map: { x: 0, y: 11, w: 6, h: 6 },
-  ai_vision: { x: 6, y: 11, w: 6, h: 6 },
-};
-
-const LAYOUT_STORAGE_KEY = "tip-bento-flexible-layout-v7";
 
 function playClickSound() {
   try {
@@ -98,50 +70,41 @@ function playClickSound() {
   }
 }
 
-function buildDefaultLayout(widgetList) {
-  return widgetList.map((widget, index) => {
-    const preset = INITIAL_LAYOUT[widget.id];
-    const size = DEFAULT_SIZE[widget.type] || { w: 4, h: 5 };
-
-    return {
-      i: widget.id,
-      x: preset?.x ?? (index * 4) % COLS,
-      y: preset?.y ?? Infinity,
-      w: preset?.w ?? size.w,
-      h: preset?.h ?? size.h,
-      minW: 1,
-      minH: 1,
-      maxW: 12,
-      maxH: 12,
-    };
-  });
-}
-
-function loadStoredLayout() {
-  try {
-    const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
 function Dashboard() {
   const { width, containerRef, mounted } = useContainerWidth();
-  const [widgets, setWidgets] = useState(defaultWidgets);
-  const [layout, setLayout] = useState(
-    () => loadStoredLayout() || buildDefaultLayout(defaultWidgets)
-  );
 
-  const [activeTab, setActiveTab] = useState("dashboard");
+  // Mode: 'landing' (blynk.io public cover) vs 'console' (Blynk.Console workspace)
+  const [viewMode, setViewMode] = useState("console");
 
-  // Projects Management State (Multi-Tenant)
+  // Navigation tab in Console: 'getstarted', 'dashboards', 'customdata', 'developer', 'devices', 'automations', 'users', 'gateway', 'analytics', 'settings'
+  const [activeConsoleTab, setActiveConsoleTab] = useState("dashboards");
+
+  // Dashboard Canvas Widgets (Starts EMPTY by default!)
+  const [widgets, setWidgets] = useState(() => {
+    try {
+      const raw = localStorage.getItem(WIDGETS_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : []; // Empty canvas by default as requested!
+    } catch {
+      return [];
+    }
+  });
+
+  const [layout, setLayout] = useState(() => {
+    try {
+      const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Projects Management State (Multi-Tenant Organizations)
   const [projects, setProjects] = useState([
-    { id: "proj-1", name: "Infra-Node-Alpha" },
-    { id: "proj-2", name: "Smart-Agri-Beta" },
-    { id: "proj-3", name: "Hydroponics-Node-03" }
+    { id: 1, name: "TIP-Infra 2464XA" },
+    { id: 2, name: "Smart-Agri-Beta" },
+    { id: 3, name: "Hydroponics-Node-03" }
   ]);
-  const [activeProject, setActiveProject] = useState("Infra-Node-Alpha");
+  const [activeProject, setActiveProject] = useState("TIP-Infra 2464XA");
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
@@ -152,16 +115,17 @@ function Dashboard() {
   const [lastRemoved, setLastRemoved] = useState(null);
   const undoTimerRef = useRef(null);
 
-  // Authenticated User Account State (DB Schema Modul A)
+  // Authenticated User Account State
   const [userAccount, setUserAccount] = useState({
-    name: "Admin User",
-    email: "admin@telecominfra.id",
+    name: "naufal",
+    email: "naufal@telecominfra.id",
     tier: "paid",
     isLoggedIn: true,
   });
 
+  // Theme State
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem("tip-theme") !== "light";
+    return localStorage.getItem("tip-theme") === "dark";
   });
 
   useEffect(() => {
@@ -174,21 +138,14 @@ function Dashboard() {
     }
   }, [isDarkMode]);
 
-  // Mouse Cursor Tracking Glow
-  const [cursorPos, setCursorPos] = useState({ x: -500, y: -500 });
-
-  const handleMouseMove = (e) => {
-    setCursorPos({ x: e.clientX, y: e.clientY });
-
-    const cards = document.querySelectorAll(".widget-bento-card");
-    cards.forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      card.style.setProperty("--mouse-x", `${x}px`);
-      card.style.setProperty("--mouse-y", `${y}px`);
-    });
-  };
+  // Persist widgets and layout to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(WIDGETS_STORAGE_KEY, JSON.stringify(widgets));
+    } catch {
+      // ignore
+    }
+  }, [widgets]);
 
   const [sensorData, setSensorData] = useState({
     temperature: 26.8,
@@ -215,28 +172,20 @@ function Dashboard() {
     return data;
   });
 
-  const [searchTerm, setSearchTerm] = useState("");
-
-  const filteredWidgets = useMemo(() => {
-    return widgets.filter((w) =>
-      w.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [widgets, searchTerm]);
-
   useEffect(() => {
     async function syncBackendData() {
       try {
         const userRes = await authAPI.getMe();
         if (userRes && userRes.email) {
           setUserAccount({
-            name: userRes.email.split("@")[0] || "User",
+            name: userRes.email.split("@")[0] || "naufal",
             email: userRes.email,
-            tier: userRes.tier || "free",
+            tier: userRes.tier || "paid",
             isLoggedIn: true,
           });
         }
       } catch {
-        // use default local user if not logged in via API
+        // default local user
       }
 
       try {
@@ -247,7 +196,7 @@ function Dashboard() {
           setActiveProject(loadedProjs[0].name);
         }
       } catch {
-        // use default projects if backend not reachable
+        // default projects
       }
     }
     syncBackendData();
@@ -302,365 +251,186 @@ function Dashboard() {
     });
   };
 
-  const handleMinimizeWidget = (widgetId) => {
+  // Add widget from Widget Box
+  const handleAddWidgetFromBox = (type, titlePreset, channelPreset) => {
     triggerSound();
-    setLayout((prev) =>
-      prev.map((item) => {
-        if (item.i === widgetId) {
-          const isCompact = item.h <= 2;
-          return { ...item, h: isCompact ? 5 : 2 };
-        }
-        return item;
-      })
-    );
-  };
+    const id = `widget_${Date.now()}`;
+    const size = DEFAULT_SIZE[type] || { w: 4, h: 5 };
+    const newWidget = {
+      id,
+      type,
+      title: titlePreset || `${type.charAt(0).toUpperCase() + type.slice(1)} Widget`,
+      deviceId: "node-01",
+      channel: channelPreset || (type === "gauge" || type === "status" || type === "chart" ? "temperature" : "pump"),
+      unit: type === "gauge" || type === "status" || type === "chart" ? "°C" : "",
+      config: type === "map" ? { latChannel: "latitude", lngChannel: "longitude" } : type === "image" ? { imageChannel: "ai_image", labelChannel: "ai_label", confidenceChannel: "ai_confidence" } : {}
+    };
 
-  const handleMaximizeWidget = (widgetId) => {
-    triggerSound();
-    setLayout((prev) =>
-      prev.map((item) => {
-        if (item.i === widgetId) {
-          const isFull = item.w === 12;
-          return { ...item, w: isFull ? 6 : 12 };
-        }
-        return item;
-      })
-    );
-  };
-
-  const handleCreateProject = (newProject) => {
-    setProjects((prev) => [...prev, newProject]);
-    setActiveProject(newProject.name);
-    setIsProjectModalOpen(false);
-  };
-
-  const handleDeleteProject = (projId) => {
-    triggerSound();
-    setProjects((prev) => {
-      const filtered = prev.filter((p) => p.id !== projId);
-      if (filtered.length > 0 && activeProject === prev.find((p) => p.id === projId)?.name) {
-        setActiveProject(filtered[0].name);
+    setWidgets(prev => [...prev, newWidget]);
+    setLayout(prev => [
+      ...prev,
+      {
+        i: id,
+        x: (prev.length * 4) % COLS,
+        y: Infinity,
+        w: size.w,
+        h: size.h,
+        minW: 2,
+        minH: 2,
+        maxW: 12,
+        maxH: 12,
       }
-      return filtered;
+    ]);
+
+    confetti({
+      particleCount: 40,
+      spread: 60,
+      origin: { y: 0.6 },
+      colors: ["#22C55E", "#34D399", "#A7F3D0"]
     });
   };
 
-  const handleAddWidget = (newWidget) => {
-    setWidgets((prev) => [...prev, newWidget]);
+  // Populate default sample blueprint widgets
+  const handleLoadSamplePresets = () => {
     triggerSound();
-    confetti({
-      particleCount: 60,
-      spread: 80,
-      origin: { y: 0.6 },
-      colors: ["#10B981", "#34D399", "#A7F3D0"]
+    setWidgets(defaultWidgets);
+    const newLayouts = defaultWidgets.map((w, idx) => {
+      const size = DEFAULT_SIZE[w.type] || { w: 4, h: 5 };
+      return {
+        i: w.id,
+        x: (idx * 4) % COLS,
+        y: Math.floor((idx * 4) / COLS) * 5,
+        w: size.w,
+        h: size.h,
+        minW: 2,
+        minH: 2,
+        maxW: 12,
+        maxH: 12,
+      };
     });
+    setLayout(newLayouts);
+  };
+
+  const handleClearAllWidgets = () => {
+    triggerSound();
+    setWidgets([]);
+    setLayout([]);
+    localStorage.removeItem(WIDGETS_STORAGE_KEY);
+    localStorage.removeItem(LAYOUT_STORAGE_KEY);
   };
 
   const handleRemoveWidget = (widgetId) => {
     triggerSound();
-    const widgetToRemove = widgets.find((w) => w.id === widgetId);
-    const layoutToRemove = layout.find((l) => l.i === widgetId);
-
-    if (!widgetToRemove) return;
-
     setWidgets((prev) => prev.filter((w) => w.id !== widgetId));
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setLastRemoved({ widget: widgetToRemove, layoutItem: layoutToRemove });
-
-    undoTimerRef.current = setTimeout(() => {
-      setLastRemoved(null);
-    }, UNDO_TIMEOUT);
+    setLayout((prev) => prev.filter((l) => l.i !== widgetId));
   };
 
-  const handleUndoRemove = () => {
-    if (!lastRemoved) return;
-    triggerSound();
-    setWidgets((prev) => [...prev, lastRemoved.widget]);
-    if (lastRemoved.layoutItem) {
-      setLayout((prev) => [...prev, lastRemoved.layoutItem]);
-    }
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    setLastRemoved(null);
-  };
-
-  const handleResetDefaults = () => {
-    triggerSound();
-    setWidgets(defaultWidgets);
-    const resetLayouts = buildDefaultLayout(defaultWidgets);
-    setLayout(resetLayouts);
-    localStorage.removeItem(LAYOUT_STORAGE_KEY);
-  };
-
-  const handleLogout = () => {
-    triggerSound();
-    setUserAccount({
-      name: "Guest User",
-      email: "",
-      tier: "free",
-      isLoggedIn: false,
-    });
-    setShowProfileMenu(false);
-  };
-
-  const visibleLayout = useMemo(() => {
-    return layout.filter((item) =>
-      filteredWidgets.some((w) => w.id === item.i)
+  // If user selected 'landing' view mode, render Public blynk.io Cover View
+  if (viewMode === "landing") {
+    return (
+      <LandingCoverView
+        onEnterConsole={() => setViewMode("console")}
+        onOpenLogin={() => setIsLoginOpen(true)}
+      />
     );
-  }, [layout, filteredWidgets]);
-
-  const gridConfig = useMemo(() => ({
-    cols: COLS,
-    rowHeight: ROW_HEIGHT,
-    margin: [GAP, GAP],
-    containerPadding: [0, 0],
-  }), []);
-
-  const dragConfig = useMemo(() => ({
-    enabled: !isEditLocked,
-    cancel: ".no-drag",
-  }), [isEditLocked]);
-
-  const resizeConfig = useMemo(() => ({
-    enabled: !isEditLocked,
-    handles: ["se", "sw", "nw", "ne", "e", "w", "s", "n"],
-  }), [isEditLocked]);
+  }
 
   return (
-    <div className="app-container" onMouseMove={handleMouseMove}>
-      {/* MOUSE CURSOR REAL-TIME TRACKING SPOTLIGHT GLOW */}
-      <div
-        className="cursor-spotlight-glow"
-        style={{
-          background: `radial-gradient(650px circle at ${cursorPos.x}px ${cursorPos.y}px, rgba(16, 185, 129, 0.16), transparent 80%)`,
-        }}
-      />
+    <div className="blynk-console-wrapper">
+      {/* ── TOPBAR: BLYNK CONSOLE HEADER (Matching Image 1, 2, 3) ── */}
+      <header className="blynk-topbar">
+        <div className="topbar-left">
+          {/* Brand Logo */}
+          <div className="blynk-brand" onClick={() => setViewMode("landing")} title="Switch to Public Cover Page">
+            <div className="blynk-logo-square">B</div>
+            <span className="blynk-brand-name">
+              Blynk<span className="dot">.Console</span>
+            </span>
+          </div>
 
-      {/* FLOATING GLASS PILL TOPBAR */}
-      <header className="top-navbar-pill">
-        {/* BRAND PILL CHANGED TO LOGIN TRIGGER */}
-        <div
-          className="brand-pill"
-          onClick={() => { setIsLoginOpen(true); triggerSound(); }}
-          title="Klik untuk Login / Kelola Akun"
-        >
-          <span className="brand-icon-emerald">
-            <KeyRound size={15} />
-          </span>
-          <span>Login / Account</span>
+          {/* Organization Dropdown Selector */}
+          <div
+            className="blynk-org-selector"
+            onClick={() => setIsProjectModalOpen(true)}
+            title="Switch Organization / Project"
+          >
+            <span>My organization - {activeProject}</span>
+            <ChevronDown size={14} className="chevron" />
+          </div>
         </div>
 
-        <nav className="nav-tabs-pill">
-          <button
-            type="button"
-            className={`nav-tab-item ${activeTab === "dashboard" ? "active" : ""}`}
-            onClick={() => { setActiveTab("dashboard"); triggerSound(); }}
-          >
-            <LayoutDashboard size={15} />
-            Dashboard
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-item ${activeTab === "sensors" ? "active" : ""}`}
-            onClick={() => { setActiveTab("sensors"); triggerSound(); }}
-          >
-            <Cpu size={15} />
-            Sensors
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-item ${activeTab === "actuators" ? "active" : ""}`}
-            onClick={() => { setActiveTab("actuators"); triggerSound(); }}
-          >
-            <Zap size={15} />
-            Actuators
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-item ${activeTab === "analytics" ? "active" : ""}`}
-            onClick={() => { setActiveTab("analytics"); triggerSound(); }}
-          >
-            <Activity size={15} />
-            Analytics
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-item ${activeTab === "alerts" ? "active" : ""}`}
-            onClick={() => { setActiveTab("alerts"); triggerSound(); }}
-          >
-            <Zap size={15} />
-            Alert Rules
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-item ${activeTab === "gateway" ? "active" : ""}`}
-            onClick={() => { setActiveTab("gateway"); triggerSound(); }}
-          >
-            <Radio size={15} />
-            Gateway
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-item ${activeTab === "settings" ? "active" : ""}`}
-            onClick={() => { setActiveTab("settings"); triggerSound(); }}
-          >
-            <Settings size={15} />
-            Settings
-          </button>
-
-          <button
-            type="button"
-            className={`nav-tab-item ${activeTab === "admin" ? "active" : ""}`}
-            onClick={() => { setActiveTab("admin"); triggerSound(); }}
-          >
-            <ShieldCheck size={15} />
-            Admin Panel
-          </button>
-        </nav>
-
-        <div className="header-right-actions">
-          {/* Multi-Tenant Project Selector */}
-          <div
-            className="project-selector-pill"
-            onClick={() => { setIsProjectModalOpen(true); triggerSound(); }}
-            title="Klik untuk Tambah / Hapus / Switch Project"
-          >
-            <Layers size={14} />
-            <span>Project: {activeProject}</span>
-            <ChevronDown size={14} />
+        <div className="topbar-right">
+          {/* Message Quota Indicator (Matching Image 1, 2, 3) */}
+          <div className="blynk-message-quota-bar">
+            <div className="quota-text">
+              <span>Messages used:</span> <strong>0 of 100.0k</strong>
+            </div>
+            <div className="quota-progress-track">
+              <div className="quota-progress-fill" style={{ width: "2%" }} />
+            </div>
           </div>
 
-          <div className="search-box-pill">
-            <Search size={14} style={{ color: "var(--emerald-mint)" }} />
-            <input
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
+          {/* Public Cover Toggle Button */}
           <button
             type="button"
-            className="icon-btn-pill"
-            onClick={() => { setIsDarkMode(!isDarkMode); triggerSound(); }}
+            className="btn-blynk-pill-sm"
+            onClick={() => setViewMode("landing")}
+            title="View Public blynk.io Cover Page"
+          >
+            <Globe size={14} /> Landing Cover
+          </button>
+
+          {/* Theme Toggle Button */}
+          <button
+            type="button"
+            className="blynk-icon-btn"
+            onClick={() => setIsDarkMode(!isDarkMode)}
             title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
-            {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
+            {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
+          {/* Audio Feedback Toggle */}
           <button
             type="button"
-            className="icon-btn-pill"
-            onClick={() => { setSoundEnabled(!soundEnabled); triggerSound(); }}
+            className="blynk-icon-btn"
+            onClick={() => setSoundEnabled(!soundEnabled)}
             title={soundEnabled ? "Mute Audio Feedback" : "Enable Audio Feedback"}
           >
-            {soundEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+            {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
 
-          <button type="button" className="icon-btn-pill" onClick={triggerSound} title="Notifications">
-            <Bell size={17} />
-            <span className="notification-pulse-dot" />
+          {/* Notifications / Announcements */}
+          <button type="button" className="blynk-icon-btn" title="Announcements & Messages">
+            <Megaphone size={16} />
           </button>
 
-          {/* User Account Avatar */}
+          <button type="button" className="blynk-icon-btn" title="Help & Docs">
+            <HelpCircle size={16} />
+          </button>
+
+          {/* User Profile Avatar */}
           <div style={{ position: "relative" }}>
-            {userAccount.isLoggedIn ? (
-              <div
-                className="avatar-pill"
-                onClick={() => { setShowProfileMenu(!showProfileMenu); triggerSound(); }}
-              >
-                <div className="avatar-img-circle">
-                  {userAccount.name ? userAccount.name.charAt(0).toUpperCase() : "U"}
-                </div>
-                <div className="avatar-info-text">
-                  <span className="avatar-name" style={{ color: "#FFFFFF" }}>{userAccount.name}</span>
-                  <span className="avatar-tier-badge">{userAccount.tier} TIER</span>
-                </div>
-                <ChevronDown size={14} style={{ marginLeft: 4, color: "var(--emerald-mint)" }} />
+            <div className="blynk-user-avatar" onClick={() => setShowProfileMenu(!showProfileMenu)}>
+              <div className="avatar-circle">
+                {userAccount.name ? userAccount.name.charAt(0).toUpperCase() : "N"}
               </div>
-            ) : (
-              <button
-                type="button"
-                className="btn-emerald-primary"
-                onClick={() => { setIsLoginOpen(true); triggerSound(); }}
-                style={{ padding: "8px 16px", fontSize: 12 }}
-              >
-                <LogIn size={14} />
-                <span>Login Akun</span>
-              </button>
-            )}
+            </div>
 
-            {/* Profile Dropdown */}
-            {showProfileMenu && userAccount.isLoggedIn && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "120%",
-                  right: 0,
-                  width: 220,
-                  background: "var(--emerald-dark-card)",
-                  border: "1px solid var(--glass-card-border-hover)",
-                  borderRadius: 20,
-                  padding: 12,
-                  boxShadow: "0 15px 35px rgba(0,0,0,0.5)",
-                  zIndex: 200,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8
-                }}
-              >
-                <div style={{ padding: "6px 10px", borderBottom: "1px solid rgba(255,255,255,0.1)", marginBottom: 4 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "white" }}>{userAccount.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{userAccount.email}</div>
+            {showProfileMenu && (
+              <div className="blynk-profile-dropdown">
+                <div className="dropdown-header">
+                  <strong>{userAccount.name}</strong>
+                  <span>{userAccount.email}</span>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => { setIsLoginOpen(true); setShowProfileMenu(false); }}
-                  style={{
-                    background: "rgba(255,255,255,0.06)",
-                    border: "none",
-                    color: "white",
-                    borderRadius: 12,
-                    padding: "8px 12px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    textAlign: "left"
-                  }}
-                >
-                  <User size={14} />
-                  <span>Switch Account / Tier</span>
+                <button type="button" onClick={() => { setIsLoginOpen(true); setShowProfileMenu(false); }}>
+                  <User size={14} /> Account Settings
                 </button>
-
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  style={{
-                    background: "rgba(239, 68, 68, 0.2)",
-                    border: "1px solid rgba(239, 68, 68, 0.3)",
-                    color: "#FCA5A5",
-                    borderRadius: 12,
-                    padding: "8px 12px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    textAlign: "left"
-                  }}
-                >
-                  <LogOut size={14} />
-                  <span>Logout</span>
+                <button type="button" onClick={() => { setViewMode("landing"); setShowProfileMenu(false); }}>
+                  <Globe size={14} /> Public Landing Cover
+                </button>
+                <button type="button" className="logout-item" onClick={() => setShowProfileMenu(false)}>
+                  <LogOut size={14} /> Log Out
                 </button>
               </div>
             )}
@@ -668,186 +438,363 @@ function Dashboard() {
         </div>
       </header>
 
-      {/* DASHBOARD TAB (KEEP GRID MOUNTED ALWAYS, TOGGLE DISPLAY TO PREVENT LAYOUT SCRAMBLING) */}
-      <div style={{ display: activeTab === "dashboard" ? "block" : "none" }}>
-        {/* HERO TITLE & KPI METRIC COUNTERS BAR */}
-        <section className="hero-bento-header">
-          <div className="hero-title-group">
-            <h1 style={{ color: "#FFFFFF" }}>
-              Welcome back, {userAccount.name.split(" ")[0]} 👋
-              <Sparkles size={24} style={{ color: "var(--emerald-neon)", animation: "pulse 2s infinite" }} />
-            </h1>
-            <p>Multi-Tenant Telecom Infra Project (TIP) • Modul A/B/C/D Integrated Platform</p>
-          </div>
-
-          {/* Counter Pills */}
-          <div className="kpi-counters-topbar">
-            <div className="kpi-counter-item">
-              <div className="kpi-icon-square">
-                <Cpu size={22} />
-              </div>
-              <div>
-                <div className="kpi-number-big" style={{ color: "#FFFFFF" }}>78</div>
-                <div className="kpi-label-small">Active Sensors</div>
-                <div className="kpi-progress-bar-thin">
-                  <div className="kpi-progress-fill-emerald" style={{ width: "75%" }} />
-                </div>
-                <span className="kpi-badge-percentage">15%</span>
-              </div>
-            </div>
-
-            <div className="kpi-counter-item">
-              <div className="kpi-icon-square" style={{ background: "rgba(245, 158, 11, 0.15)", color: "#F59E0B", borderColor: "rgba(245, 158, 11, 0.3)" }}>
-                <Zap size={22} />
-              </div>
-              <div>
-                <div className="kpi-number-big" style={{ color: "#FFFFFF" }}>56</div>
-                <div className="kpi-label-small">Actuator Relays</div>
-                <div className="kpi-progress-bar-thin">
-                  <div className="kpi-progress-fill-emerald" style={{ width: "60%", background: "#F59E0B", boxShadow: "0 0 8px #F59E0B" }} />
-                </div>
-                <span className="kpi-badge-percentage" style={{ background: "rgba(245, 158, 11, 0.2)", color: "#FBBF24" }}>60%</span>
-              </div>
-            </div>
-
-            <div className="kpi-counter-item">
-              <div className="kpi-icon-square">
-                <Activity size={22} />
-              </div>
-              <div>
-                <div className="kpi-number-big" style={{ color: "#FFFFFF" }}>203</div>
-                <div className="kpi-label-small">Telemetry Streams</div>
-                <div className="kpi-progress-bar-thin">
-                  <div className="kpi-progress-fill-emerald" style={{ width: "90%" }} />
-                </div>
-                <span className="kpi-badge-percentage">10%</span>
-              </div>
-            </div>
-
-            <div className="dashboard-action-buttons">
-              <button
-                type="button"
-                className="btn-emerald-primary"
-                onClick={() => { setIsBuilderOpen(true); triggerSound(); }}
-              >
-                <Plus size={16} />
-                Add Widget
-              </button>
-
-              <button
-                type="button"
-                className="btn-glass-pill"
-                onClick={() => { setIsEditLocked(!isEditLocked); triggerSound(); }}
-              >
-                {isEditLocked ? <Lock size={15} /> : <Unlock size={15} />}
-                {isEditLocked ? "Locked" : "Edit Mode"}
-              </button>
-
-              <button
-                type="button"
-                className="btn-glass-pill"
-                onClick={handleResetDefaults}
-                title="Reset layout"
-              >
-                <RotateCcw size={15} />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* DYNAMIC REACT GRID LAYOUT */}
-        <main ref={containerRef} className="dashboard-grid-container">
-          {mounted && (
-            <ReactGridLayout
-              className="dashboard-grid-layout"
-              layout={visibleLayout}
-              gridConfig={gridConfig}
-              dragConfig={dragConfig}
-              resizeConfig={resizeConfig}
-              width={width}
-              onDragStop={handleLayoutChange}
-              onResizeStop={handleLayoutChange}
+      {/* ── BLYNK CONSOLE BODY: SIDEBAR + MAIN CONTENT ── */}
+      <div className="blynk-console-body">
+        {/* ── LEFT SIDEBAR NAVIGATION (Matching Image 1, 2, 3) ── */}
+        <aside className="blynk-sidebar">
+          <div className="sidebar-nav-group">
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "getstarted" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("getstarted"); triggerSound(); }}
             >
-              {filteredWidgets.map((widget) => (
-                <div key={widget.id} className="grid-item-wrapper">
-                  {!isEditLocked && (
-                    <div className="grid-item-actions">
-                      <button
-                        type="button"
-                        className="action-icon-btn no-drag"
-                        onClick={() => handleMinimizeWidget(widget.id)}
-                        title="Minimize / Compact Card"
-                      >
-                        <Minimize2 size={13} />
-                      </button>
+              <Star size={18} className="item-icon" />
+              <span>Get Started</span>
+            </button>
 
-                      <button
-                        type="button"
-                        className="action-icon-btn no-drag"
-                        onClick={() => handleMaximizeWidget(widget.id)}
-                        title="Expand / Full Width"
-                      >
-                        <Maximize2 size={13} />
-                      </button>
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "dashboards" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("dashboards"); triggerSound(); }}
+            >
+              <LayoutDashboard size={18} className="item-icon" />
+              <span>Dashboards</span>
+            </button>
 
-                      <button
-                        type="button"
-                        className="action-icon-btn delete-btn no-drag"
-                        onClick={() => handleRemoveWidget(widget.id)}
-                        title={`Remove ${widget.title}`}
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                  )}
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "customdata" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("customdata"); triggerSound(); }}
+            >
+              <Box size={18} className="item-icon" />
+              <span>Custom Data</span>
+            </button>
 
-                  <WidgetRenderer
-                    widget={widget}
-                    sensorData={sensorData}
-                    history={history}
-                    onToggle={(newState) => {
-                      triggerSound();
-                      setSensorData((prev) => ({ ...prev, [widget.channel]: newState }));
-                    }}
-                  />
-                </div>
-              ))}
-            </ReactGridLayout>
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "developer" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("developer"); triggerSound(); }}
+            >
+              <Sliders size={18} className="item-icon" />
+              <span>Developer Zone</span>
+            </button>
+
+            <div className="sidebar-divider" />
+
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "devices" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("devices"); triggerSound(); }}
+            >
+              <Cpu size={18} className="item-icon" />
+              <span>Devices</span>
+            </button>
+
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "automations" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("automations"); triggerSound(); }}
+            >
+              <Zap size={18} className="item-icon" />
+              <span>Automations</span>
+            </button>
+
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "users" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("users"); triggerSound(); }}
+            >
+              <Users size={18} className="item-icon" />
+              <span>Users</span>
+            </button>
+
+            <button
+              type="button"
+              className={`sidebar-item`}
+              onClick={() => setIsProjectModalOpen(true)}
+            >
+              <Building size={18} className="item-icon" />
+              <span>Organizations</span>
+            </button>
+
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "gateway" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("gateway"); triggerSound(); }}
+            >
+              <Radio size={18} className="item-icon" />
+              <span>Fleet & Gateway</span>
+            </button>
+
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "analytics" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("analytics"); triggerSound(); }}
+            >
+              <Activity size={18} className="item-icon" />
+              <span>Predictive Analytics</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* ── MAIN CONTENT AREA ── */}
+        <main className="blynk-main-canvas-area">
+          {/* TAB 1: GET STARTED */}
+          {activeConsoleTab === "getstarted" && (
+            <GetStartedView
+              onNavigateTab={(tab) => setActiveConsoleTab(tab)}
+              userAccount={userAccount}
+            />
           )}
+
+          {/* TAB 2: DASHBOARDS (MATCHING IMAGE 2) */}
+          {activeConsoleTab === "dashboards" && (
+            <div className="blynk-dashboard-builder-view">
+              {/* DASHBOARD TOP TOOLBAR */}
+              <div className="dashboard-toolbar-bar">
+                <div className="toolbar-left-info">
+                  <h2>My Dashboard</h2>
+                  <span className="widget-count-chip">{widgets.length} Widgets</span>
+                </div>
+
+                <div className="toolbar-right-actions">
+                  {/* Lock / Edit Mode Toggle */}
+                  <button
+                    type="button"
+                    className={`btn-blynk-pill-sm ${!isEditLocked ? "active-edit" : ""}`}
+                    onClick={() => { setIsEditLocked(!isEditLocked); triggerSound(); }}
+                  >
+                    {!isEditLocked ? <Unlock size={14} /> : <Lock size={14} />}
+                    {!isEditLocked ? "Edit Mode (On)" : "Locked"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="btn-blynk-pill-sm"
+                    onClick={handleLoadSamplePresets}
+                    title="Load Sample Blueprint Widgets"
+                  >
+                    <Sparkles size={14} /> Load Presets
+                  </button>
+
+                  {widgets.length > 0 && (
+                    <button
+                      type="button"
+                      className="btn-blynk-pill-sm danger"
+                      onClick={handleClearAllWidgets}
+                      title="Clear Canvas"
+                    >
+                      <RotateCcw size={14} /> Clear Canvas
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* DASHBOARD BODY AREA: WIDGET BOX SIDEBAR + CANVAS */}
+              <div className="dashboard-canvas-layout-container">
+                {/* BLYNK WIDGET BOX PANEL (Visible in Edit Mode - Matching Image 2) */}
+                {!isEditLocked && (
+                  <aside className="blynk-widget-box-panel">
+                    <div className="widget-box-header">
+                      <Box size={16} style={{ color: "#22C55E" }} />
+                      <h3>Widget Box</h3>
+                    </div>
+
+                    <div className="widget-box-section">
+                      <div className="box-section-title">Controls</div>
+
+                      {/* Switch Widget Option */}
+                      <div
+                        className="widget-box-item"
+                        onDoubleClick={() => handleAddWidgetFromBox("boolean", "Pump Switch", "pump")}
+                        onClick={() => handleAddWidgetFromBox("boolean", "Pump Switch", "pump")}
+                        title="Klik atau Double Click untuk menambah Switch"
+                      >
+                        <div className="item-icon-sq"><ToggleLeft size={18} /></div>
+                        <div>
+                          <strong>Switch</strong>
+                          <span>Digital On/Off Relay Control</span>
+                        </div>
+                      </div>
+
+                      {/* Slider Option */}
+                      <div
+                        className="widget-box-item"
+                        onDoubleClick={() => handleAddWidgetFromBox("gauge", "Slider Control", "humidity")}
+                        onClick={() => handleAddWidgetFromBox("gauge", "Slider Control", "humidity")}
+                      >
+                        <div className="item-icon-sq"><Sliders size={18} /></div>
+                        <div>
+                          <strong>Slider</strong>
+                          <span>Analog Value Controller</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="widget-box-section" style={{ marginTop: 16 }}>
+                      <div className="box-section-title">Tiles & Displays</div>
+
+                      {/* Label Value Tile */}
+                      <div
+                        className="widget-box-item"
+                        onDoubleClick={() => handleAddWidgetFromBox("status", "Temperature Label", "temperature")}
+                        onClick={() => handleAddWidgetFromBox("status", "Temperature Label", "temperature")}
+                      >
+                        <div className="item-icon-sq"><Hash size={18} /></div>
+                        <div>
+                          <strong>Label</strong>
+                          <span>Single Metric Value Display</span>
+                        </div>
+                      </div>
+
+                      {/* Gauge Speedometer */}
+                      <div
+                        className="widget-box-item"
+                        onDoubleClick={() => handleAddWidgetFromBox("gauge", "Soil Moisture Ring", "humidity")}
+                        onClick={() => handleAddWidgetFromBox("gauge", "Soil Moisture Ring", "humidity")}
+                      >
+                        <div className="item-icon-sq"><Activity size={18} /></div>
+                        <div>
+                          <strong>Gauge</strong>
+                          <span>Radial Speedometer Ring</span>
+                        </div>
+                      </div>
+
+                      {/* Chart Option */}
+                      <div
+                        className="widget-box-item"
+                        onDoubleClick={() => handleAddWidgetFromBox("chart", "Telemetry History", "temperature")}
+                        onClick={() => handleAddWidgetFromBox("chart", "Telemetry History", "temperature")}
+                      >
+                        <div className="item-icon-sq"><Activity size={18} /></div>
+                        <div>
+                          <strong>Chart</strong>
+                          <span>Historical Telemetry Line</span>
+                        </div>
+                      </div>
+
+                      {/* GPS Map Option */}
+                      <div
+                        className="widget-box-item"
+                        onDoubleClick={() => handleAddWidgetFromBox("map", "Node Location", "latitude")}
+                        onClick={() => handleAddWidgetFromBox("map", "Node Location", "latitude")}
+                      >
+                        <div className="item-icon-sq"><MapPin size={18} /></div>
+                        <div>
+                          <strong>Map</strong>
+                          <span>GPS Leaflet Locator</span>
+                        </div>
+                      </div>
+
+                      {/* Image Camera Feed */}
+                      <div
+                        className="widget-box-item"
+                        onDoubleClick={() => handleAddWidgetFromBox("image", "AI Camera Stream", "ai_image")}
+                        onClick={() => handleAddWidgetFromBox("image", "AI Camera Stream", "ai_image")}
+                      >
+                        <div className="item-icon-sq"><Eye size={18} /></div>
+                        <div>
+                          <strong>Image Feed</strong>
+                          <span>ONNX AI Camera Stream</span>
+                        </div>
+                      </div>
+                    </div>
+                  </aside>
+                )}
+
+                {/* MAIN GRID CANVAS */}
+                <div ref={containerRef} className="canvas-grid-viewport">
+                  {/* IF CANVAS IS EMPTY (MATCHING IMAGE 2 PLACEHOLDER) */}
+                  {widgets.length === 0 ? (
+                    <div className="blynk-empty-canvas-placeholder">
+                      <div className="empty-dashed-box">
+                        <MousePointerClick size={44} className="empty-icon" />
+                        <h3>Add new widget</h3>
+                        <p>Double click the widget on the left or click to add it to the canvas</p>
+                        <button type="button" className="btn-blynk-green-action" style={{ marginTop: 16 }} onClick={handleLoadSamplePresets}>
+                          <Sparkles size={16} /> Load Sample Widgets
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* RENDER GRID LAYOUT */
+                    mounted && (
+                      <ReactGridLayout
+                        className="dashboard-grid-layout"
+                        layout={layout}
+                        cols={COLS}
+                        rowHeight={ROW_HEIGHT}
+                        margin={[GAP, GAP]}
+                        containerPadding={[0, 0]}
+                        isDraggable={!isEditLocked}
+                        isResizable={!isEditLocked}
+                        width={width}
+                        onDragStop={handleLayoutChange}
+                        onResizeStop={handleLayoutChange}
+                      >
+                        {widgets.map((widget) => (
+                          <div key={widget.id} className="grid-item-wrapper">
+                            {!isEditLocked && (
+                              <div className="grid-item-actions">
+                                <button
+                                  type="button"
+                                  className="action-icon-btn delete-btn no-drag"
+                                  onClick={() => handleRemoveWidget(widget.id)}
+                                  title={`Remove ${widget.title}`}
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                            )}
+
+                            <WidgetRenderer
+                              widget={widget}
+                              sensorData={sensorData}
+                              history={history}
+                              onToggle={(newState) => {
+                                triggerSound();
+                                setSensorData((prev) => ({ ...prev, [widget.channel]: newState }));
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </ReactGridLayout>
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: CUSTOM DATA */}
+          {activeConsoleTab === "customdata" && <SensorsView sensorData={sensorData} />}
+
+          {/* TAB 4: DEVELOPER ZONE */}
+          {activeConsoleTab === "developer" && <AdminPanelView userAccount={userAccount} />}
+
+          {/* TAB 5: DEVICES (MATCHING IMAGE 3) */}
+          {activeConsoleTab === "devices" && (
+            <DevicesView
+              activeProjectId={1}
+              onSelectDevice={(device) => setActiveConsoleTab("customdata")}
+            />
+          )}
+
+          {/* TAB 6: AUTOMATIONS */}
+          {activeConsoleTab === "automations" && <AlertsView />}
+
+          {/* TAB 7: USERS & TEAMS */}
+          {activeConsoleTab === "users" && <SettingsView userAccount={userAccount} />}
+
+          {/* TAB 8: GATEWAY & FLEET */}
+          {activeConsoleTab === "gateway" && <GatewayView />}
+
+          {/* TAB 9: ANALYTICS */}
+          {activeConsoleTab === "analytics" && <AnalyticsView history={history} />}
         </main>
       </div>
 
-      {/* OTHER SUB-VIEWS (DYNAMIC UNMOUNT / MOUNT IS SAFE FOR NON-GRID VIEWS) */}
-      {activeTab === "sensors" && <SensorsView sensorData={sensorData} />}
-
-      {activeTab === "actuators" && (
-        <ActuatorsView
-          sensorData={sensorData}
-          onToggle={(newState) => {
-            setSensorData((prev) => ({ ...prev, pump: newState }));
-          }}
-        />
-      )}
-
-      {activeTab === "analytics" && <AnalyticsView history={history} />}
-
-      {activeTab === "alerts" && <AlertsView />}
-
-      {activeTab === "settings" && <SettingsView userAccount={userAccount} />}
-
-      {activeTab === "admin" && <AdminPanelView userAccount={userAccount} />}
-
-      {activeTab === "gateway" && <GatewayView />}
-
-      {/* GRAFANA WIDGET BUILDER MODAL */}
-      {isBuilderOpen && (
-        <WidgetBuilder
-          onAddWidget={handleAddWidget}
-          onClose={() => setIsBuilderOpen(false)}
-        />
-      )}
-
-      {/* LOGIN & REGISTER MODAL */}
+      {/* LOGIN MODAL */}
       {isLoginOpen && (
         <LoginModal
           onClose={() => setIsLoginOpen(false)}
@@ -858,7 +805,7 @@ function Dashboard() {
         />
       )}
 
-      {/* MULTI-TENANT PROJECT MANAGEMENT MODAL */}
+      {/* PROJECT / ORGANIZATION MODAL */}
       {isProjectModalOpen && (
         <ProjectModal
           projects={projects}
@@ -868,21 +815,16 @@ function Dashboard() {
             setIsProjectModalOpen(false);
             triggerSound();
           }}
-          onCreateProject={handleCreateProject}
-          onDeleteProject={handleDeleteProject}
+          onCreateProject={(newProj) => {
+            setProjects(prev => [...prev, newProj]);
+            setActiveProject(newProj.name);
+            setIsProjectModalOpen(false);
+          }}
+          onDeleteProject={(projId) => {
+            setProjects(prev => prev.filter(p => p.id !== projId));
+          }}
           onClose={() => setIsProjectModalOpen(false)}
         />
-      )}
-
-      {/* UNDO TOAST FLOATING NOTIFICATION */}
-      {lastRemoved && (
-        <div className="undo-toast-floating">
-          <span>Widget "{lastRemoved.widget.title}" dihapus.</span>
-          <button type="button" className="btn-emerald-primary" style={{ padding: "6px 14px", fontSize: 12 }} onClick={handleUndoRemove}>
-            <Undo2 size={14} />
-            Urungkan
-          </button>
-        </div>
       )}
     </div>
   );
