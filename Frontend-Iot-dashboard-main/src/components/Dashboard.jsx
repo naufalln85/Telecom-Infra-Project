@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import ReactGridLayout, { useContainerWidth } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
@@ -9,7 +9,7 @@ import WidgetRenderer from "./WidgetRenderer";
 import WidgetBuilder from "./WidgetBuilder";
 import LoginModal from "./LoginModal";
 import ProjectModal from "./ProjectModal";
-import { authAPI, projectsAPI, dashboardAPI } from "../services/api";
+import { authAPI, projectsAPI, gatewayAPI } from "../services/api";
 
 // Sub-Views
 import LandingCoverView from "./views/LandingCoverView";
@@ -22,6 +22,7 @@ import SettingsView from "./views/SettingsView";
 import AlertsView from "./views/AlertsView";
 import AdminPanelView from "./views/AdminPanelView";
 import GatewayView from "./views/GatewayView";
+import AIBuilderView from "./views/AIBuilderView";
 
 import socket from "../socket";
 import confetti from "canvas-confetti";
@@ -31,7 +32,7 @@ import {
   Volume2, VolumeX, User, LogOut, LogIn, Minimize2, Maximize2, KeyRound,
   ShieldCheck, Sun, Moon, Radio, Star, Box, Sliders, ToggleLeft, Hash,
   MapPin, Eye, Compass, Globe, HelpCircle, Megaphone, Users, Building,
-  Grid, ListFilter, Play, ArrowRight, MousePointerClick
+  Grid, ListFilter, Play, ArrowRight, MousePointerClick, Brain, Loader2
 } from "lucide-react";
 
 const COLS = 12;
@@ -73,38 +74,36 @@ function playClickSound() {
 function Dashboard() {
   const { width, containerRef, mounted } = useContainerWidth();
 
-  // Mode: 'landing' (blynk.io public cover) vs 'console' (Blynk.Console workspace)
-  const [viewMode, setViewMode] = useState("console");
+  // ─── AUTH STATE MACHINE ──────────────────────────────────────────────────
+  // 'landing' → public cover (not logged in)
+  // 'login'   → login/register page
+  // 'console' → Blynk console (authenticated)
+  const [viewMode, setViewMode] = useState(() => {
+    // Auto-console if JWT exists, else show landing
+    return authAPI.isLoggedIn() ? "console" : "landing";
+  });
+  const [authLoading, setAuthLoading] = useState(authAPI.isLoggedIn());
 
-  // Navigation tab in Console: 'getstarted', 'dashboards', 'customdata', 'developer', 'devices', 'automations', 'users', 'gateway', 'analytics', 'settings'
   const [activeConsoleTab, setActiveConsoleTab] = useState("dashboards");
 
-  // Dashboard Canvas Widgets (Starts EMPTY by default!)
+  // Dashboard Canvas Widgets — STARTS EMPTY
   const [widgets, setWidgets] = useState(() => {
     try {
       const raw = localStorage.getItem(WIDGETS_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : []; // Empty canvas by default as requested!
-    } catch {
-      return [];
-    }
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
   });
 
   const [layout, setLayout] = useState(() => {
     try {
       const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
       return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   });
 
-  // Projects Management State (Multi-Tenant Organizations)
-  const [projects, setProjects] = useState([
-    { id: 1, name: "TIP-Infra 2464XA" },
-    { id: 2, name: "Smart-Agri-Beta" },
-    { id: 3, name: "Hydroponics-Node-03" }
-  ]);
-  const [activeProject, setActiveProject] = useState("TIP-Infra 2464XA");
+  // Projects state — starts empty, filled from API
+  const [projects, setProjects] = useState([]);
+  const [activeProject, setActiveProject] = useState(null); // object: { id, name }
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
@@ -115,17 +114,12 @@ function Dashboard() {
   const [lastRemoved, setLastRemoved] = useState(null);
   const undoTimerRef = useRef(null);
 
-  // Authenticated User Account State
-  const [userAccount, setUserAccount] = useState({
-    name: "naufal",
-    email: "naufal@telecominfra.id",
-    tier: "paid",
-    isLoggedIn: true,
-  });
+  // Authenticated User Account State — starts null (not logged in)
+  const [userAccount, setUserAccount] = useState(null);
 
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    return localStorage.getItem("tip-theme") === "dark";
+    return localStorage.getItem("tip-theme") !== "light";
   });
 
   useEffect(() => {
@@ -140,88 +134,96 @@ function Dashboard() {
 
   // Persist widgets and layout to localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem(WIDGETS_STORAGE_KEY, JSON.stringify(widgets));
-    } catch {
-      // ignore
-    }
+    try { localStorage.setItem(WIDGETS_STORAGE_KEY, JSON.stringify(widgets)); }
+    catch { /* ignore */ }
   }, [widgets]);
 
-  const [sensorData, setSensorData] = useState({
-    temperature: 26.8,
-    humidity: 68.4,
-    pump: true,
-    latitude: -6.914744,
-    longitude: 107.60981,
-    ai_image: "https://images.unsplash.com/photo-1592150621744-aca64f48394a?auto=format&fit=crop&w=600&q=80",
-    ai_label: "Healthy Plant",
-    ai_confidence: 98.6,
-  });
+  // Sensor data from gateway — starts empty, filled from polling
+  const [sensorData, setSensorData] = useState({});
+  const [history, setHistory] = useState([]);
 
-  const [history, setHistory] = useState(() => {
-    const data = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const time = new Date(now.getTime() - i * 3600 * 1000);
-      data.push({
-        time: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        temperature: parseFloat((25 + Math.random() * 3).toFixed(1)),
-        humidity: parseFloat((65 + Math.random() * 5).toFixed(1)),
-      });
-    }
-    return data;
-  });
-
-  useEffect(() => {
-    async function syncBackendData() {
-      try {
-        const userRes = await authAPI.getMe();
-        if (userRes && userRes.email) {
-          setUserAccount({
-            name: userRes.email.split("@")[0] || "naufal",
-            email: userRes.email,
-            tier: userRes.tier || "paid",
-            isLoggedIn: true,
-          });
-        }
-      } catch {
-        // default local user
+  // ─── FETCH REAL USER + PROJECTS FROM API (only when logged in) ───────────
+  const syncBackendData = useCallback(async () => {
+    if (!authAPI.isLoggedIn()) return;
+    setAuthLoading(true);
+    try {
+      const userRes = await authAPI.getMe();
+      if (userRes?.email) {
+        setUserAccount({
+          id: userRes.id,
+          name: userRes.email.split("@")[0],
+          email: userRes.email,
+          tier: userRes.tier || "free",
+          isLoggedIn: true,
+        });
       }
-
-      try {
-        const projRes = await projectsAPI.list();
-        if (projRes && projRes.data && projRes.data.length > 0) {
-          const loadedProjs = projRes.data.map((p) => ({ id: p.id, name: p.name }));
-          setProjects(loadedProjs);
-          setActiveProject(loadedProjs[0].name);
-        }
-      } catch {
-        // default projects
+    } catch (e) {
+      // Token expired/invalid → force logout
+      if (e.message.includes("401") || e.message.includes("Token")) {
+        authAPI.logout();
+        setViewMode("landing");
+        setUserAccount(null);
       }
     }
-    syncBackendData();
+
+    try {
+      const projRes = await projectsAPI.list();
+      if (projRes?.data?.length > 0) {
+        const loaded = projRes.data.map(p => ({ id: p.id, name: p.name }));
+        setProjects(loaded);
+        setActiveProject(prev => prev ?? loaded[0]);
+      }
+    } catch { /* ignore */ }
+    finally { setAuthLoading(false); }
   }, []);
 
   useEffect(() => {
-    socket.emit("subscribe", { deviceId: "node-01" });
+    if (viewMode === "console") syncBackendData();
+  }, [viewMode, syncBackendData]);
 
+  // ─── POLL GATEWAY LOGS FOR REAL SENSOR DATA every 5s ─────────────────────
+  useEffect(() => {
+    if (viewMode !== "console") return;
+    const poll = async () => {
+      try {
+        const res = await gatewayAPI.getLogs(1);
+        if (res?.data?.length > 0) {
+          const latest = res.data[0];
+          setSensorData(prev => ({ ...prev, ...latest.data }));
+          setHistory(prev => [
+            ...prev.slice(-19),
+            {
+              time: new Date(latest.received_at || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+              ...latest.data,
+            }
+          ]);
+        }
+      } catch { /* gateway offline */ }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [viewMode]);
+
+  // Socket.IO — supplement polling with push when available
+  useEffect(() => {
+    if (viewMode !== "console") return;
+    socket.emit("subscribe", { deviceId: "node-01" });
     socket.on("device-data", (data) => {
-      setSensorData((prev) => ({ ...prev, ...data }));
-      setHistory((prev) => [
+      setSensorData(prev => ({ ...prev, ...data }));
+      setHistory(prev => [
         ...prev.slice(-19),
         {
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          temperature: data.temperature ?? prev[prev.length - 1]?.temperature,
-          humidity: data.humidity ?? prev[prev.length - 1]?.humidity,
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          ...data,
         },
       ]);
     });
-
     return () => {
       socket.emit("unsubscribe", { deviceId: "node-01" });
       socket.off("device-data");
     };
-  }, []);
+  }, [viewMode]);
 
   const triggerSound = () => {
     if (soundEnabled) playClickSound();
@@ -325,13 +327,32 @@ function Dashboard() {
     setLayout((prev) => prev.filter((l) => l.i !== widgetId));
   };
 
-  // If user selected 'landing' view mode, render Public blynk.io Cover View
+  // ─── AUTH GATE RENDERS ───────────────────────────────────────────────────
   if (viewMode === "landing") {
     return (
       <LandingCoverView
-        onEnterConsole={() => setViewMode("console")}
+        onEnterConsole={() => {
+          if (authAPI.isLoggedIn()) setViewMode("console");
+          else setIsLoginOpen(true);
+        }}
         onOpenLogin={() => setIsLoginOpen(true)}
+        isLoginOpen={isLoginOpen}
+        onLoginSuccess={(accountData) => {
+          setUserAccount(accountData);
+          setIsLoginOpen(false);
+          setViewMode("console");
+        }}
+        onCloseLogin={() => setIsLoginOpen(false)}
       />
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", flexDirection: "column", gap: 16, background: "var(--bg)" }}>
+        <Loader2 size={32} style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} />
+        <p style={{ color: "var(--text-muted)", fontSize: 14 }}>Memverifikasi sesi...</p>
+      </div>
     );
   }
 
@@ -354,7 +375,7 @@ function Dashboard() {
             onClick={() => setIsProjectModalOpen(true)}
             title="Switch Organization / Project"
           >
-            <span>My organization - {activeProject}</span>
+            <span>My organization - {activeProject?.name || "—"}</span>
             <ChevronDown size={14} className="chevron" />
           </div>
         </div>
@@ -413,15 +434,16 @@ function Dashboard() {
           <div style={{ position: "relative" }}>
             <div className="blynk-user-avatar" onClick={() => setShowProfileMenu(!showProfileMenu)}>
               <div className="avatar-circle">
-                {userAccount.name ? userAccount.name.charAt(0).toUpperCase() : "N"}
+                {userAccount?.name ? userAccount.name.charAt(0).toUpperCase() : "?"}
               </div>
             </div>
 
             {showProfileMenu && (
               <div className="blynk-profile-dropdown">
                 <div className="dropdown-header">
-                  <strong>{userAccount.name}</strong>
-                  <span>{userAccount.email}</span>
+                  <strong>{userAccount?.name || "Guest"}</strong>
+                  <span>{userAccount?.email || ""}</span>
+                  {userAccount?.tier && <span style={{ fontSize: 10, background: "rgba(16,185,129,.15)", color: "var(--accent)", padding: "2px 8px", borderRadius: 8, marginTop: 4, display: "inline-block" }}>{userAccount.tier.toUpperCase()}</span>}
                 </div>
                 <button type="button" onClick={() => { setIsLoginOpen(true); setShowProfileMenu(false); }}>
                   <User size={14} /> Account Settings
@@ -429,7 +451,14 @@ function Dashboard() {
                 <button type="button" onClick={() => { setViewMode("landing"); setShowProfileMenu(false); }}>
                   <Globe size={14} /> Public Landing Cover
                 </button>
-                <button type="button" className="logout-item" onClick={() => setShowProfileMenu(false)}>
+                <button type="button" className="logout-item" onClick={() => {
+                  authAPI.logout();
+                  setUserAccount(null);
+                  setProjects([]);
+                  setActiveProject(null);
+                  setShowProfileMenu(false);
+                  setViewMode("landing");
+                }}>
                   <LogOut size={14} /> Log Out
                 </button>
               </div>
@@ -532,7 +561,16 @@ function Dashboard() {
               onClick={() => { setActiveConsoleTab("analytics"); triggerSound(); }}
             >
               <Activity size={18} className="item-icon" />
-              <span>Predictive Analytics</span>
+              <span>Analytics</span>
+            </button>
+
+            <button
+              type="button"
+              className={`sidebar-item ${activeConsoleTab === "ai-builder" ? "active" : ""}`}
+              onClick={() => { setActiveConsoleTab("ai-builder"); triggerSound(); }}
+            >
+              <Brain size={18} className="item-icon" />
+              <span>AI / ML Builder</span>
             </button>
           </div>
         </aside>
@@ -772,16 +810,18 @@ function Dashboard() {
           {/* TAB 4: DEVELOPER ZONE */}
           {activeConsoleTab === "developer" && <AdminPanelView userAccount={userAccount} />}
 
-          {/* TAB 5: DEVICES (MATCHING IMAGE 3) */}
+          {/* TAB 5: DEVICES */}
           {activeConsoleTab === "devices" && (
             <DevicesView
-              activeProjectId={1}
-              onSelectDevice={(device) => setActiveConsoleTab("customdata")}
+              activeProjectId={activeProject?.id}
+              onSelectDevice={() => setActiveConsoleTab("customdata")}
             />
           )}
 
-          {/* TAB 6: AUTOMATIONS */}
-          {activeConsoleTab === "automations" && <AlertsView />}
+          {/* TAB 6: AUTOMATIONS / ALERT ENGINE */}
+          {activeConsoleTab === "automations" && (
+            <AlertsView activeProject={activeProject} />
+          )}
 
           {/* TAB 7: USERS & TEAMS */}
           {activeConsoleTab === "users" && <SettingsView userAccount={userAccount} />}
@@ -791,6 +831,11 @@ function Dashboard() {
 
           {/* TAB 9: ANALYTICS */}
           {activeConsoleTab === "analytics" && <AnalyticsView history={history} />}
+
+          {/* TAB 10: AI / ML BUILDER */}
+          {activeConsoleTab === "ai-builder" && (
+            <AIBuilderView activeProject={activeProject} />
+          )}
         </main>
       </div>
 
@@ -800,6 +845,8 @@ function Dashboard() {
           onClose={() => setIsLoginOpen(false)}
           onLoginSuccess={(accountData) => {
             setUserAccount(accountData);
+            setIsLoginOpen(false);
+            if (viewMode !== "console") setViewMode("console");
             triggerSound();
           }}
         />
@@ -809,19 +856,21 @@ function Dashboard() {
       {isProjectModalOpen && (
         <ProjectModal
           projects={projects}
-          activeProject={activeProject}
+          activeProject={activeProject?.name}
           onSelectProject={(projName) => {
-            setActiveProject(projName);
+            const found = projects.find(p => p.name === projName);
+            setActiveProject(found || null);
             setIsProjectModalOpen(false);
             triggerSound();
           }}
           onCreateProject={(newProj) => {
             setProjects(prev => [...prev, newProj]);
-            setActiveProject(newProj.name);
+            setActiveProject(newProj);
             setIsProjectModalOpen(false);
           }}
           onDeleteProject={(projId) => {
             setProjects(prev => prev.filter(p => p.id !== projId));
+            if (activeProject?.id === projId) setActiveProject(null);
           }}
           onClose={() => setIsProjectModalOpen(false)}
         />

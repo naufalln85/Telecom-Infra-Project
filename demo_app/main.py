@@ -960,6 +960,460 @@ async def get_gateway_stats():
     }
 
 
+@app.get("/api/v1/telemetry/history")
+async def get_telemetry_history(device_id: Optional[int] = None, channel: Optional[str] = None, limit: int = 100):
+    """Ambil riwayat telemetri dari in-memory gateway log, filter opsional per device & channel."""
+    logs = list(reversed(_telemetry_log[-200:]))
+    if device_id is not None:
+        logs = [l for l in logs if l.get("device_id") == device_id]
+    if channel:
+        logs = [l for l in logs if channel in (l.get("data") or {})]
+    return {"data": logs[:limit], "total": len(logs)}
+
+
+# =============================================================================
+# CRUD ALERT RULES
+# =============================================================================
+
+class AlertRuleCreateV2(BaseModel):
+    device_id: int
+    channel_id: int
+    operator: str  # >, <, >=, <=, ==
+    threshold_value: float
+    cooldown_seconds: int = 60
+    notification_channel_ids: Optional[List[int]] = []
+
+@app.post("/api/v1/projects/{project_id}/rules", status_code=201)
+async def create_v1_rule(project_id: int, payload: AlertRuleCreateV2, db: AsyncSession = Depends(get_db)):
+    """Buat alert rule baru untuk project tertentu."""
+    try:
+        res = await db.execute(text("""
+            INSERT INTO alert_rules (project_id, device_id, channel_id, operator, threshold_value, cooldown_seconds, is_active)
+            VALUES (:pid, :did, :cid, :op, :tval, :cool, true)
+            RETURNING id, project_id, device_id, channel_id, operator, threshold_value, cooldown_seconds, is_active;
+        """), {
+            "pid": project_id, "did": payload.device_id, "cid": payload.channel_id,
+            "op": payload.operator, "tval": payload.threshold_value, "cool": payload.cooldown_seconds
+        })
+        row = res.fetchone()
+        rule_id = row[0]
+
+        # Sambungkan ke notifikasi channel jika ada
+        for notif_id in (payload.notification_channel_ids or []):
+            await db.execute(text("""
+                INSERT INTO alert_rule_targets (alert_rule_id, notification_channel_id, project_id)
+                VALUES (:rid, :nid, :pid) ON CONFLICT DO NOTHING;
+            """), {"rid": rule_id, "nid": notif_id, "pid": project_id})
+
+        await db.commit()
+        return {"message": "Alert rule berhasil dibuat.", "data": dict(zip(row._fields, row))}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/v1/rules/{rule_id}")
+async def delete_v1_rule(rule_id: int, db: AsyncSession = Depends(get_db)):
+    """Hapus (soft-deactivate) sebuah alert rule."""
+    try:
+        res = await db.execute(text("""
+            UPDATE alert_rules SET is_active = false WHERE id = :id RETURNING id;
+        """), {"id": rule_id})
+        if not res.fetchone():
+            raise HTTPException(status_code=404, detail="Rule tidak ditemukan.")
+        await db.commit()
+        return {"message": f"Alert rule #{rule_id} dinonaktifkan."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/api/v1/rules/{rule_id}/toggle")
+async def toggle_v1_rule(rule_id: int, db: AsyncSession = Depends(get_db)):
+    """Toggle status aktif/nonaktif sebuah alert rule."""
+    try:
+        res = await db.execute(text("""
+            UPDATE alert_rules SET is_active = NOT is_active WHERE id = :id RETURNING id, is_active;
+        """), {"id": rule_id})
+        row = res.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Rule tidak ditemukan.")
+        await db.commit()
+        return {"message": f"Rule #{rule_id} status: {'aktif' if row[1] else 'nonaktif'}.", "is_active": row[1]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# CRUD NOTIFICATION CHANNELS
+# =============================================================================
+
+class NotifChannelCreate(BaseModel):
+    name: str
+    type: str = "telegram"  # telegram | webhook | email
+    config: Optional[dict] = {}
+
+@app.post("/api/v1/projects/{project_id}/notifications/channels", status_code=201)
+async def create_notif_channel(project_id: int, payload: NotifChannelCreate, db: AsyncSession = Depends(get_db), current_account = Depends(get_current_account)):
+    """Buat notifikasi channel baru (Telegram, Webhook, dll)."""
+    try:
+        res = await db.execute(text("""
+            INSERT INTO notification_channels (project_id, account_id, name, type, config)
+            VALUES (:pid, :aid, :name, :type, :config::jsonb)
+            RETURNING id, project_id, name, type, created_at;
+        """), {
+            "pid": project_id, "aid": current_account[0],
+            "name": payload.name, "type": payload.type,
+            "config": json.dumps(payload.config or {})
+        })
+        row = res.fetchone()
+        await db.commit()
+        return {"message": "Notifikasi channel berhasil dibuat.", "data": dict(zip(row._fields, row))}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/v1/notifications/channels/{channel_id}")
+async def delete_notif_channel(channel_id: int, db: AsyncSession = Depends(get_db)):
+    """Soft-delete notifikasi channel."""
+    try:
+        res = await db.execute(text("""
+            UPDATE notification_channels SET deleted_at = now() WHERE id = :id AND deleted_at IS NULL RETURNING id;
+        """), {"id": channel_id})
+        if not res.fetchone():
+            raise HTTPException(status_code=404, detail="Channel tidak ditemukan.")
+        await db.commit()
+        return {"message": f"Notifikasi channel #{channel_id} dihapus."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# AI / ML MODEL ENGINE
+# =============================================================================
+# In-memory registry untuk custom AI models yang dibuat user
+_ai_models_registry: List[dict] = []
+_ai_model_id_counter = 1
+
+# Preset AI Models yang tersedia untuk semua user
+PRESET_AI_MODELS = [
+    {
+        "id": "preset_weather",
+        "name": "🌤️ Weather Predictor",
+        "description": "Memprediksi kondisi cuaca (Cerah / Berawan / Hujan) berdasarkan suhu dan kelembapan sensor IoT.",
+        "type": "preset",
+        "category": "classification",
+        "required_channels": ["temperature", "humidity"],
+        "author": "TIP Platform",
+        "status": "deployed",
+    },
+    {
+        "id": "preset_anomaly",
+        "name": "🚨 Anomaly Detector",
+        "description": "Mendeteksi nilai sensor yang anomali menggunakan algoritma Z-Score. Nilai >2σ dari rata-rata dianggap anomali.",
+        "type": "preset",
+        "category": "anomaly_detection",
+        "required_channels": ["any_numeric"],
+        "author": "TIP Platform",
+        "status": "deployed",
+    },
+    {
+        "id": "preset_trend",
+        "name": "📈 Trend Forecaster",
+        "description": "Memprediksi nilai sensor berikutnya menggunakan regresi linier dari data historis terakhir.",
+        "type": "preset",
+        "category": "regression",
+        "required_channels": ["any_numeric"],
+        "author": "TIP Platform",
+        "status": "deployed",
+    },
+    {
+        "id": "preset_soil",
+        "name": "🌱 Soil & Plant Health",
+        "description": "Menganalisis kondisi tanah dari data kelembapan & suhu untuk memberikan rekomendasi irigasi.",
+        "type": "preset",
+        "category": "advisory",
+        "required_channels": ["humidity", "temperature"],
+        "author": "TIP Platform",
+        "status": "deployed",
+    },
+]
+
+def _run_weather_predictor(data: dict) -> dict:
+    """Model cuaca sederhana berbasis aturan fisika & meteorologi dasar."""
+    temp = float(data.get("temperature", 25))
+    hum = float(data.get("humidity", 60))
+    score = 0
+    factors = []
+
+    if hum > 85:
+        score += 3
+        factors.append(f"Kelembapan sangat tinggi ({hum:.1f}%)")
+    elif hum > 70:
+        score += 2
+        factors.append(f"Kelembapan tinggi ({hum:.1f}%)")
+    elif hum > 55:
+        score += 1
+        factors.append(f"Kelembapan sedang ({hum:.1f}%)")
+    else:
+        factors.append(f"Kelembapan rendah ({hum:.1f}%)")
+
+    if temp < 20:
+        score += 1
+        factors.append(f"Suhu dingin ({temp:.1f}°C)")
+    elif temp > 35:
+        score -= 1
+        factors.append(f"Suhu panas ({temp:.1f}°C)")
+    else:
+        factors.append(f"Suhu normal ({temp:.1f}°C)")
+
+    if score >= 4:
+        prediction, emoji, confidence = "Hujan Lebat", "🌧️", min(95, 70 + score * 5)
+    elif score >= 2:
+        prediction, emoji, confidence = "Berawan / Kemungkinan Hujan", "⛅", min(85, 55 + score * 5)
+    elif score >= 1:
+        prediction, emoji, confidence = "Berawan Sebagian", "🌤️", 60 + score * 5
+    else:
+        prediction, emoji, confidence = "Cerah", "☀️", 80
+
+    return {
+        "prediction": prediction,
+        "emoji": emoji,
+        "confidence": f"{confidence:.0f}%",
+        "factors": factors,
+        "summary": f"{emoji} {prediction} — Kepercayaan: {confidence:.0f}%"
+    }
+
+def _run_anomaly_detector(data: dict) -> dict:
+    """Z-Score anomaly detection dari riwayat log in-memory."""
+    import math
+    results = {}
+    for key, val in data.items():
+        try:
+            val = float(val)
+            # Ambil nilai historis dari telemetry log
+            historical = [
+                float(log["data"].get(key, val))
+                for log in _telemetry_log[-50:]
+                if key in (log.get("data") or {})
+            ]
+            if len(historical) < 5:
+                results[key] = {"value": val, "status": "insufficient_data", "message": "Butuh minimal 5 data historis."}
+                continue
+            mean = sum(historical) / len(historical)
+            std = math.sqrt(sum((x - mean) ** 2 for x in historical) / len(historical))
+            z_score = abs(val - mean) / (std if std > 0 else 1)
+            is_anomaly = z_score > 2.0
+            results[key] = {
+                "value": val, "mean": round(mean, 2), "std": round(std, 2),
+                "z_score": round(z_score, 2), "is_anomaly": is_anomaly,
+                "status": "ANOMALI ⚠️" if is_anomaly else "Normal ✅",
+                "message": f"Z-Score {z_score:.2f} {'> 2σ (Anomali)' if is_anomaly else '≤ 2σ (Normal)'}"
+            }
+        except (ValueError, TypeError):
+            pass
+    return {"channel_results": results, "summary": f"{sum(1 for r in results.values() if r.get('is_anomaly'))} anomali terdeteksi dari {len(results)} channel."}
+
+def _run_trend_forecaster(data: dict) -> dict:
+    """Regresi linier sederhana untuk memprediksi nilai berikutnya."""
+    results = {}
+    for key, val in data.items():
+        try:
+            val = float(val)
+            historical = [
+                float(log["data"].get(key, val))
+                for log in _telemetry_log[-30:]
+                if key in (log.get("data") or {})
+            ]
+            if len(historical) < 3:
+                results[key] = {"current": val, "trend": "stable", "next_predicted": val, "message": "Butuh minimal 3 data."}
+                continue
+            n = len(historical)
+            xs = list(range(n))
+            mean_x = sum(xs) / n
+            mean_y = sum(historical) / n
+            num = sum((xs[i] - mean_x) * (historical[i] - mean_y) for i in range(n))
+            den = sum((xs[i] - mean_x) ** 2 for i in range(n))
+            slope = num / den if den != 0 else 0
+            intercept = mean_y - slope * mean_x
+            next_val = slope * n + intercept
+
+            if slope > 0.1:
+                trend, emoji = "naik", "📈"
+            elif slope < -0.1:
+                trend, emoji = "turun", "📉"
+            else:
+                trend, emoji = "stabil", "➡️"
+
+            results[key] = {
+                "current": round(val, 2), "slope": round(slope, 4),
+                "trend": trend, "emoji": emoji,
+                "next_predicted": round(next_val, 2),
+                "message": f"{emoji} Tren {trend} | Prediksi berikutnya: {next_val:.2f}"
+            }
+        except (ValueError, TypeError):
+            pass
+    return {"channel_results": results, "summary": f"Tren dianalisis dari {len(_telemetry_log)} data historis."}
+
+def _run_soil_health(data: dict) -> dict:
+    """Analisis kondisi tanah & rekomendasi irigasi."""
+    temp = float(data.get("temperature", 25))
+    hum = float(data.get("humidity", 60))
+    factors, recommendations = [], []
+
+    if hum < 30:
+        factors.append(f"Tanah sangat kering ({hum:.1f}%)")
+        recommendations.append("💧 Lakukan irigasi segera!")
+        health = "Kritis"
+    elif hum < 50:
+        factors.append(f"Tanah cukup kering ({hum:.1f}%)")
+        recommendations.append("💧 Pertimbangkan irigasi dalam 12 jam.")
+        health = "Perhatian"
+    elif hum > 85:
+        factors.append(f"Tanah terlalu basah ({hum:.1f}%)")
+        recommendations.append("🚫 Hentikan irigasi, risiko waterlogging.")
+        health = "Peringatan"
+    else:
+        factors.append(f"Kelembapan tanah optimal ({hum:.1f}%)")
+        health = "Optimal"
+
+    if temp > 38:
+        recommendations.append("🌡️ Suhu terlalu tinggi, pertimbangkan shading.")
+    elif temp < 15:
+        recommendations.append("❄️ Suhu terlalu rendah untuk pertumbuhan optimal.")
+
+    return {
+        "soil_health": health,
+        "temperature": temp,
+        "humidity": hum,
+        "factors": factors,
+        "recommendations": recommendations if recommendations else ["✅ Kondisi optimal, tidak ada tindakan diperlukan."],
+        "summary": f"Kondisi Tanah: {health}"
+    }
+
+
+@app.get("/api/v1/ai-models")
+async def list_ai_models():
+    """Daftar semua model AI: preset platform + custom buatan user."""
+    custom = [m for m in _ai_models_registry]
+    return {
+        "preset": PRESET_AI_MODELS,
+        "custom": custom,
+        "total": len(PRESET_AI_MODELS) + len(custom)
+    }
+
+
+class CustomAIModelCreate(BaseModel):
+    name: str
+    description: str = ""
+    category: str = "custom"
+    # Kode Python yang akan dieksekusi (sandboxed)
+    # Fungsi harus bernama `run(data: dict) -> dict`
+    code: str
+    required_channels: Optional[List[str]] = []
+
+@app.post("/api/v1/ai-models", status_code=201)
+async def create_custom_ai_model(payload: CustomAIModelCreate):
+    """Buat custom AI/ML model. User menulis fungsi Python `run(data)` yang dieksekusi di sandbox."""
+    global _ai_model_id_counter
+
+    # Validasi sederhana: kode harus mengandung fungsi run()
+    if "def run(" not in payload.code and "def run (" not in payload.code:
+        raise HTTPException(
+            status_code=400,
+            detail="Kode harus mengandung fungsi Python bernama `run(data: dict) -> dict`."
+        )
+
+    model = {
+        "id": f"custom_{_ai_model_id_counter}",
+        "name": payload.name,
+        "description": payload.description,
+        "type": "custom",
+        "category": payload.category,
+        "required_channels": payload.required_channels or [],
+        "code": payload.code,
+        "author": "User",
+        "status": "deployed",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    _ai_models_registry.append(model)
+    _ai_model_id_counter += 1
+
+    return {"message": f"Model '{payload.name}' berhasil dibuat.", "data": {k: v for k, v in model.items() if k != "code"}}
+
+
+class AIModelRunRequest(BaseModel):
+    data: dict  # Data sensor untuk diproses model
+
+@app.post("/api/v1/ai-models/{model_id}/run")
+async def run_ai_model(model_id: str, payload: AIModelRunRequest):
+    """Jalankan model AI/ML pada data sensor yang diberikan."""
+    data = payload.data
+
+    # Preset models
+    if model_id == "preset_weather":
+        if "temperature" not in data or "humidity" not in data:
+            raise HTTPException(status_code=400, detail="Model ini membutuhkan channel: temperature, humidity.")
+        result = _run_weather_predictor(data)
+        return {"model": "Weather Predictor", "input": data, "result": result}
+
+    elif model_id == "preset_anomaly":
+        result = _run_anomaly_detector(data)
+        return {"model": "Anomaly Detector", "input": data, "result": result}
+
+    elif model_id == "preset_trend":
+        result = _run_trend_forecaster(data)
+        return {"model": "Trend Forecaster", "input": data, "result": result}
+
+    elif model_id == "preset_soil":
+        result = _run_soil_health(data)
+        return {"model": "Soil & Plant Health", "input": data, "result": result}
+
+    # Custom models — cari di registry
+    else:
+        model = next((m for m in _ai_models_registry if m["id"] == model_id), None)
+        if not model:
+            raise HTTPException(status_code=404, detail=f"Model '{model_id}' tidak ditemukan.")
+
+        # Sandboxed execution — hanya izinkan math, builtins dasar, dan data input
+        import math, statistics
+        sandbox_globals = {
+            "__builtins__": {
+                "len": len, "range": range, "sum": sum, "min": min, "max": max,
+                "abs": abs, "round": round, "float": float, "int": int, "str": str,
+                "list": list, "dict": dict, "enumerate": enumerate, "zip": zip,
+                "sorted": sorted, "print": print, "isinstance": isinstance,
+                "True": True, "False": False, "None": None,
+            },
+            "math": math,
+            "statistics": statistics,
+        }
+        sandbox_locals = {}
+
+        try:
+            exec(model["code"], sandbox_globals, sandbox_locals)
+            run_fn = sandbox_locals.get("run")
+            if not run_fn or not callable(run_fn):
+                raise HTTPException(status_code=400, detail="Fungsi `run(data)` tidak ditemukan dalam kode model.")
+            result = run_fn(data)
+            if not isinstance(result, dict):
+                result = {"output": str(result)}
+            return {"model": model["name"], "input": data, "result": result}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"Error saat menjalankan model: {str(e)}")
+
+
 # Serves dashboard index.html frontend
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
@@ -968,5 +1422,3 @@ async def get_index():
     with open(html_path, "r", encoding="utf-8") as f:
         return f.read()
 
-# Setup static files directory (untuk bootstrap, css, dll. jika ada)
-# Tapi di dashboard kita gunakan CDN agar instalasi di VM tidak butuh unduh static files lokal
