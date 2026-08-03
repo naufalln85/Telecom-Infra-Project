@@ -23,6 +23,8 @@ import AlertsView from "./views/AlertsView";
 import AdminPanelView from "./views/AdminPanelView";
 import GatewayView from "./views/GatewayView";
 import AIBuilderView from "./views/AIBuilderView";
+import UsersView from "./views/UsersView";
+import WidgetConfigModal from "./WidgetConfigModal";
 
 import socket from "../socket";
 import confetti from "canvas-confetti";
@@ -108,6 +110,7 @@ function Dashboard() {
 
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [editingWidget, setEditingWidget] = useState(null);
   const [isEditLocked, setIsEditLocked] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -776,6 +779,15 @@ function Dashboard() {
                               <div className="grid-item-actions">
                                 <button
                                   type="button"
+                                  className="action-icon-btn edit-btn no-drag"
+                                  onClick={() => setEditingWidget(widget)}
+                                  title={`Settings for ${widget.title}`}
+                                  style={{ background: "rgba(16,185,129,.2)", color: "#10B981", marginRight: 4 }}
+                                >
+                                  <Settings size={13} />
+                                </button>
+                                <button
+                                  type="button"
                                   className="action-icon-btn delete-btn no-drag"
                                   onClick={() => handleRemoveWidget(widget.id)}
                                   title={`Remove ${widget.title}`}
@@ -823,8 +835,10 @@ function Dashboard() {
             <AlertsView activeProject={activeProject} />
           )}
 
-          {/* TAB 7: USERS & TEAMS */}
-          {activeConsoleTab === "users" && <SettingsView userAccount={userAccount} />}
+          {/* TAB 7: USERS & TEAMS (MATCHING IMAGE 2) */}
+          {activeConsoleTab === "users" && (
+            <UsersView activeProject={activeProject} userAccount={userAccount} />
+          )}
 
           {/* TAB 8: GATEWAY & FLEET */}
           {activeConsoleTab === "gateway" && <GatewayView />}
@@ -873,6 +887,20 @@ function Dashboard() {
             if (activeProject?.id === projId) setActiveProject(null);
           }}
           onClose={() => setIsProjectModalOpen(false)}
+        />
+      )}
+
+      {/* WIDGET CONFIGURATION MODAL */}
+      {editingWidget && (
+        <WidgetConfigModal
+          widget={editingWidget}
+          activeProjectId={activeProject?.id}
+          onClose={() => setEditingWidget(null)}
+          onSave={(updatedWidget) => {
+            setWidgets(prev => prev.map(w => w.id === updatedWidget.id ? updatedWidget : w));
+            setEditingWidget(null);
+            triggerSound();
+          }}
         />
       )}
     </div>

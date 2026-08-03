@@ -36,26 +36,20 @@ function LoginModal({ onClose, onLoginSuccess }) {
         isLoggedIn: true,
       };
 
-      confetti({
-        particleCount: 50,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ["#10B981", "#34D399", "#A7F3D0"]
-      });
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ["#10B981", "#34D399", "#A7F3D0"]
+        });
+      } catch { /* ignore */ }
 
       onLoginSuccess(accountData);
       onClose();
     } catch (err) {
-      // Fallback local login if backend is not reachable locally yet
-      console.warn("Backend API call failed, falling back to local session:", err);
-      const accountData = {
-        name: isRegister ? name : (email.split("@")[0] || "User"),
-        email: email,
-        tier: tier,
-        isLoggedIn: true,
-      };
-      onLoginSuccess(accountData);
-      onClose();
+      console.error("Auth action failed:", err);
+      setError(err.message || "Gagal memproses autentikasi. Pastikan data benar.");
     } finally {
       setLoading(false);
     }

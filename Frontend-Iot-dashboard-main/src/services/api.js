@@ -102,6 +102,21 @@ export const projectsAPI = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// USERS & MEMBERS MANAGEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+export const membersAPI = {
+  async list(projectId) {
+    return await apiFetch(`/api/v1/projects/${projectId}/members`);
+  },
+  async invite(projectId, email, name, role = "Staff") {
+    return await apiFetch(`/api/v1/projects/${projectId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ email, name, role }),
+    });
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DEVICES
 // ─────────────────────────────────────────────────────────────────────────────
 export const devicesAPI = {

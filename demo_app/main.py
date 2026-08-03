@@ -681,9 +681,23 @@ async def delete_v1_project(project_id: int, db: AsyncSession = Depends(get_db))
 @app.get("/api/v1/projects/{project_id}/devices")
 async def list_v1_devices(project_id: int, db: AsyncSession = Depends(get_db)):
     try:
+        # Verifikasi dulu apakah project_id valid
+        p_check = await db.execute(text("SELECT id FROM projects WHERE id = :pid AND deleted_at IS NULL"), {"pid": project_id})
+        valid_pid = p_check.fetchone()
+        
+        target_pid = project_id
+        if not valid_pid:
+            # Fallback ke project aktif pertama jika ada
+            any_p = await db.execute(text("SELECT id FROM projects WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1"))
+            row_p = any_p.fetchone()
+            if row_p:
+                target_pid = row_p[0]
+            else:
+                return {"data": []}
+
         res = await db.execute(text("""
-            SELECT id, name, project_id, created_at FROM devices WHERE project_id = :pid AND deleted_at IS NULL;
-        """), {"pid": project_id})
+            SELECT id, name, project_id, created_at FROM devices WHERE project_id = :pid AND deleted_at IS NULL ORDER BY id DESC;
+        """), {"pid": target_pid})
         devices = [dict(zip(res.keys(), row)) for row in res.fetchall()]
         return {"data": devices}
     except Exception as e:
@@ -695,19 +709,107 @@ async def create_v1_device(project_id: int, payload: dict, db: AsyncSession = De
     import hashlib
     raw_api_key = f"tip_live_{os.urandom(12).hex()}"
     key_hash = hashlib.sha256(raw_api_key.encode()).hexdigest()
+
     try:
+        # 1. Pastikan project_id benar-benar ada di tabel projects
+        p_check = await db.execute(text("SELECT id FROM projects WHERE id = :pid AND deleted_at IS NULL"), {"pid": project_id})
+        valid_p = p_check.fetchone()
+        
+        target_pid = project_id
+        if not valid_p:
+            # Cari project aktif pertama
+            any_p = await db.execute(text("SELECT id FROM projects WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1"))
+            row_p = any_p.fetchone()
+            if row_p:
+                target_pid = row_p[0]
+            else:
+                # Jika sama sekali belum ada project, buatkan default project otomatis!
+                new_p = await db.execute(text("INSERT INTO projects (name) VALUES ('My organization - 2464XA') RETURNING id;"))
+                target_pid = new_p.fetchone()[0]
+
         res = await db.execute(text("""
             INSERT INTO devices (project_id, name, api_key_hash) VALUES (:pid, :name, :hash) RETURNING id, name, created_at;
-        """), {"pid": project_id, "name": name, "hash": key_hash})
+        """), {"pid": target_pid, "name": name, "hash": key_hash})
         row = res.fetchone()
+        
+        # Buat otomatis default data channels untuk device baru ini agar bisa langsung dipakai di widgets!
+        dev_id = row[0]
+        await db.execute(text("""
+            INSERT INTO data_channels (device_id, name, channel_type, unit) VALUES
+            (:did, 'temperature', 'numeric', '°C'),
+            (:did, 'humidity', 'numeric', '%'),
+            (:did, 'relay_1', 'boolean', NULL)
+            ON CONFLICT DO NOTHING;
+        """), {"did": dev_id})
+
         await db.commit()
         return {
             "message": "Perangkat berhasil didaftarkan.",
-            "data": {"id": row[0], "name": row[1], "api_key": raw_api_key}
+            "data": {"id": row[0], "name": row[1], "project_id": target_pid, "api_key": raw_api_key}
         }
     except Exception as e:
         await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Gagal menambahkan device: {str(e)}")
+
+# =============================================================================
+# USERS & MEMBERS MANAGEMENT ENDPOINTS (MATCHING BLYNK USERS TAB)
+# =============================================================================
+
+@app.get("/api/v1/projects/{project_id}/members")
+async def list_project_members(project_id: int, db: AsyncSession = Depends(get_db)):
+    """Daftar anggota/users yang terdaftar dalam organisasi/project."""
+    try:
+        res = await db.execute(text("""
+            SELECT a.id, a.email, pm.role, a.created_at, a.tier,
+                   'Active' as status, now() as last_logged_at
+            FROM project_members pm
+            JOIN accounts a ON a.id = pm.account_id
+            WHERE pm.project_id = :pid AND a.deleted_at IS NULL
+            ORDER BY a.id ASC;
+        """), {"pid": project_id})
+        members = [dict(zip(res.keys(), row)) for row in res.fetchall()]
+        return {"data": members}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class MemberInviteRequest(BaseModel):
+    email: EmailStr
+    name: Optional[str] = "Team Member"
+    role: str = "Staff"  # Admin | Staff | Viewer
+
+@app.post("/api/v1/projects/{project_id}/members", status_code=201)
+async def invite_project_member(project_id: int, payload: MemberInviteRequest, db: AsyncSession = Depends(get_db)):
+    """Undang/tambah user baru ke dalam organisasi/project."""
+    try:
+        email = payload.email.lower()
+        # Cek apakah akun email sudah ada
+        res_acc = await db.execute(text("SELECT id FROM accounts WHERE lower(email) = :email"), {"email": email})
+        acc_row = res_acc.fetchone()
+        
+        acc_id = None
+        if acc_row:
+            acc_id = acc_row[0]
+        else:
+            # Buat akun baru secara otomatis
+            new_acc = await db.execute(text("""
+                INSERT INTO accounts (email, password_hash, tier)
+                VALUES (:email, :pwd, 'free') RETURNING id;
+            """), {"email": email, "pwd": pwd_context.hash("Password123!")})
+            acc_id = new_acc.fetchone()[0]
+
+        # Tambahkan ke project_members
+        await db.execute(text("""
+            INSERT INTO project_members (project_id, account_id, role)
+            VALUES (:pid, :aid, :role)
+            ON CONFLICT (project_id, account_id) DO UPDATE SET role = :role;
+        """), {"pid": project_id, "aid": acc_id, "role": payload.role})
+
+        await db.commit()
+        return {"message": f"User {email} berhasil ditambahkan ke organisasi dengan role {payload.role}."}
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/v1/devices/{device_id}/channels")
 async def list_v1_channels(device_id: int, db: AsyncSession = Depends(get_db)):
