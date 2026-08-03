@@ -3,8 +3,9 @@ import {
   Zap, ShieldCheck, Cpu, ArrowRight, Layers, Radio, Activity,
   Globe, Sparkles, CheckCircle2, Server, Lock, Play, ChevronRight
 } from "lucide-react";
+import LoginModal from "../LoginModal";
 
-function LandingCoverView({ onEnterConsole, onOpenLogin }) {
+function LandingCoverView({ onEnterConsole, onOpenLogin, isLoginOpen, onLoginSuccess, onCloseLogin }) {
   return (
     <div className="landing-cover-container">
       {/* ── LANDING NAVBAR ── */}
@@ -29,7 +30,7 @@ function LandingCoverView({ onEnterConsole, onOpenLogin }) {
           <button type="button" className="landing-btn-login" onClick={onOpenLogin}>
             Log In
           </button>
-          <button type="button" className="landing-btn-signup" onClick={onEnterConsole}>
+          <button type="button" className="landing-btn-signup" onClick={onOpenLogin}>
             Sign Up <ArrowRight size={14} />
           </button>
         </div>
@@ -140,6 +141,14 @@ function LandingCoverView({ onEnterConsole, onOpenLogin }) {
           </button>
         </div>
       </section>
+
+      {/* ── LOGIN / REGISTER MODAL ── */}
+      {isLoginOpen && (
+        <LoginModal
+          onClose={onCloseLogin || (() => {})}
+          onLoginSuccess={onLoginSuccess || (() => {})}
+        />
+      )}
     </div>
   );
 }
