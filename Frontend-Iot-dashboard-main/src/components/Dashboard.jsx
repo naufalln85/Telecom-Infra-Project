@@ -81,24 +81,26 @@ function Dashboard() {
 
   const [activeConsoleTab, setActiveConsoleTab] = useState("dashboards");
 
-  // Projects state
-  const [projects, setProjects] = useState([
-    { id: 1, name: "Smart Agriculture Greenhouse" },
-    { id: 2, name: "Telecom Base Station Monitoring" }
-  ]);
-  const [activeProject, setActiveProject] = useState({ id: 1, name: "Smart Agriculture Greenhouse" });
+  // Authenticated User Account State — must be declared FIRST (used in storage key computation)
+  const [userAccount, setUserAccount] = useState(null);
+
+  // Projects state — starts empty, populated per-user from API
+  const [projects, setProjects] = useState([]);
+  const [activeProject, setActiveProject] = useState(null);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
-  // Dynamic Project Storage Keys
-  const projId = activeProject?.id || 1;
-  const currentWidgetKey = `tip-blynk-widgets-proj-${projId}`;
-  const currentLayoutKey = `tip-blynk-layout-proj-${projId}`;
+  // ── PER-USER + PER-PROJECT localStorage isolation ──
+  // Keys are scoped by BOTH userId AND projectId → each account has completely separate data
+  const userId = userAccount?.id || userAccount?.email || "guest";
+  const projId = activeProject?.id || "default";
+  const currentWidgetKey = `tip-widgets-u${userId}-p${projId}`;
+  const currentLayoutKey = `tip-layout-u${userId}-p${projId}`;
 
-  // Dashboard Canvas Widgets — Loaded per Active Project
+  // Dashboard Canvas Widgets — Loaded per Active User + Project
   const [widgets, setWidgets] = useState([]);
   const [layout, setLayout] = useState([]);
 
-  // Reload widgets and layout whenever activeProject changes
+  // Reload widgets/layout whenever active user OR project changes
   useEffect(() => {
     try {
       const rawW = localStorage.getItem(currentWidgetKey);
@@ -109,16 +111,16 @@ function Dashboard() {
       setWidgets([]);
       setLayout([]);
     }
-  }, [projId, currentWidgetKey, currentLayoutKey]);
+  }, [currentWidgetKey, currentLayoutKey]);
 
-  // Persist widgets and layout to active project key
+  // Persist widgets and layout scoped to current user + project
   useEffect(() => {
-    if (!projId) return;
+    if (!userAccount) return; // don't persist for unauthenticated
     try {
       localStorage.setItem(currentWidgetKey, JSON.stringify(widgets));
       localStorage.setItem(currentLayoutKey, JSON.stringify(layout));
     } catch { /* ignore */ }
-  }, [widgets, layout, currentWidgetKey, currentLayoutKey, projId]);
+  }, [widgets, layout, currentWidgetKey, currentLayoutKey, userAccount]);
 
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -126,9 +128,6 @@ function Dashboard() {
   const [isEditLocked, setIsEditLocked] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-
-  // Authenticated User Account State
-  const [userAccount, setUserAccount] = useState(null);
 
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -153,22 +152,28 @@ function Dashboard() {
   const syncBackendData = useCallback(async () => {
     if (!authAPI.isLoggedIn()) return;
     setAuthLoading(true);
+    let resolvedUser = null;
     try {
       const userRes = await authAPI.getMe();
       if (userRes?.email) {
-        setUserAccount({
+        resolvedUser = {
           id: userRes.id,
           name: userRes.email.split("@")[0],
           email: userRes.email,
           tier: userRes.tier || "free",
           isLoggedIn: true,
-        });
+        };
+        setUserAccount(resolvedUser);
       }
     } catch (e) {
       if (e.message.includes("401") || e.message.includes("Token")) {
         authAPI.logout();
         setViewMode("landing");
         setUserAccount(null);
+        setProjects([]);
+        setActiveProject(null);
+        setAuthLoading(false);
+        return;
       }
     }
 
@@ -177,7 +182,12 @@ function Dashboard() {
       if (projRes?.data?.length > 0) {
         const loaded = projRes.data.map(p => ({ id: p.id, name: p.name }));
         setProjects(loaded);
-        setActiveProject(prev => prev ?? loaded[0]);
+        // Always reset to first project of this user (don't carry over previous user's selection)
+        setActiveProject(loaded[0]);
+      } else {
+        // No projects from backend — reset for clean slate per user
+        setProjects([]);
+        setActiveProject(null);
       }
     } catch { /* ignore */ }
     finally { setAuthLoading(false); }
@@ -347,7 +357,7 @@ function Dashboard() {
     setProjects(prev => prev.filter(p => p.id !== projIdToDelete));
     if (activeProject?.id === projIdToDelete) {
       const remaining = projects.filter(p => p.id !== projIdToDelete);
-      setActiveProject(remaining[0] || { id: 1, name: "Default Project" });
+      setActiveProject(remaining[0] || null);
     }
   };
 
@@ -474,6 +484,8 @@ function Dashboard() {
                   setUserAccount(null);
                   setProjects([]);
                   setActiveProject(null);
+                  setWidgets([]);
+                  setLayout([]);
                   setShowProfileMenu(false);
                   setViewMode("landing");
                 }}>
