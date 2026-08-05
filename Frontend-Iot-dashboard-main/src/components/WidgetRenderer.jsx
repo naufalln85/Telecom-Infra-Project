@@ -5,6 +5,8 @@ import BooleanWidget from "./widgets/BooleanWidget";
 import MapWidget from "./widgets/MapWidget";
 import ImageWidget from "./widgets/ImageWidget";
 import CalendarLogWidget from "./widgets/CalendarLogWidget";
+import TableWidget from "./widgets/TableWidget";
+import SliderWidget from "./widgets/SliderWidget";
 
 function WidgetRenderer({ widget, sensorData, history, onToggle }) {
   switch (widget.type) {
@@ -66,6 +68,25 @@ function WidgetRenderer({ widget, sensorData, history, onToggle }) {
 
     case "calendar":
       return <CalendarLogWidget title={widget.title} />;
+
+    case "table":
+      return (
+        <TableWidget
+          title={widget.title}
+          history={history}
+          deviceId={widget.deviceId}
+        />
+      );
+
+    case "slider":
+      return (
+        <SliderWidget
+          title={widget.title}
+          value={sensorData[widget.channel]}
+          unit={widget.unit || "%"}
+          onChange={(val) => onToggle && onToggle(widget.channel, val)}
+        />
+      );
 
     default:
       console.warn("Unknown widget type:", widget.type);

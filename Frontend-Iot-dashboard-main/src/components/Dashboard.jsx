@@ -34,15 +34,12 @@ import {
   Volume2, VolumeX, User, LogOut, LogIn, Minimize2, Maximize2, KeyRound,
   ShieldCheck, Sun, Moon, Radio, Star, Box, Sliders, ToggleLeft, Hash,
   MapPin, Eye, Compass, Globe, HelpCircle, Megaphone, Users, Building,
-  Grid, ListFilter, Play, ArrowRight, MousePointerClick, Brain, Loader2
+  Grid, ListFilter, Play, ArrowRight, MousePointerClick, Brain, Loader2, Table
 } from "lucide-react";
 
 const COLS = 12;
 const ROW_HEIGHT = 45;
 const GAP = 20;
-const UNDO_TIMEOUT = 6000;
-const WIDGETS_STORAGE_KEY = "tip-blynk-widgets-v2";
-const LAYOUT_STORAGE_KEY = "tip-blynk-layout-v2";
 
 const DEFAULT_SIZE = {
   status: { w: 4, h: 5 },
@@ -52,6 +49,8 @@ const DEFAULT_SIZE = {
   calendar: { w: 6, h: 5 },
   map: { w: 6, h: 6 },
   image: { w: 6, h: 6 },
+  table: { w: 8, h: 7 },
+  slider: { w: 4, h: 4 },
 };
 
 function playClickSound() {
@@ -65,8 +64,6 @@ function playClickSound() {
     gain.gain.setValueAtTime(0.12, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
     osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
     osc.stop(ctx.currentTime + 0.08);
   } catch {
     // Ignore audio restrictions
@@ -77,36 +74,51 @@ function Dashboard() {
   const { width, containerRef, mounted } = useContainerWidth();
 
   // ─── AUTH STATE MACHINE ──────────────────────────────────────────────────
-  // 'landing' → public cover (not logged in)
-  // 'login'   → login/register page
-  // 'console' → Blynk console (authenticated)
   const [viewMode, setViewMode] = useState(() => {
-    // Auto-console if JWT exists, else show landing
     return authAPI.isLoggedIn() ? "console" : "landing";
   });
   const [authLoading, setAuthLoading] = useState(authAPI.isLoggedIn());
 
   const [activeConsoleTab, setActiveConsoleTab] = useState("dashboards");
 
-  // Dashboard Canvas Widgets — STARTS EMPTY
-  const [widgets, setWidgets] = useState(() => {
-    try {
-      const raw = localStorage.getItem(WIDGETS_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
-
-  const [layout, setLayout] = useState(() => {
-    try {
-      const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
-  });
-
-  // Projects state — starts empty, filled from API
-  const [projects, setProjects] = useState([]);
-  const [activeProject, setActiveProject] = useState(null); // object: { id, name }
+  // Projects state
+  const [projects, setProjects] = useState([
+    { id: 1, name: "Smart Agriculture Greenhouse" },
+    { id: 2, name: "Telecom Base Station Monitoring" }
+  ]);
+  const [activeProject, setActiveProject] = useState({ id: 1, name: "Smart Agriculture Greenhouse" });
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+
+  // Dynamic Project Storage Keys
+  const projId = activeProject?.id || 1;
+  const currentWidgetKey = `tip-blynk-widgets-proj-${projId}`;
+  const currentLayoutKey = `tip-blynk-layout-proj-${projId}`;
+
+  // Dashboard Canvas Widgets — Loaded per Active Project
+  const [widgets, setWidgets] = useState([]);
+  const [layout, setLayout] = useState([]);
+
+  // Reload widgets and layout whenever activeProject changes
+  useEffect(() => {
+    try {
+      const rawW = localStorage.getItem(currentWidgetKey);
+      const rawL = localStorage.getItem(currentLayoutKey);
+      setWidgets(rawW ? JSON.parse(rawW) : []);
+      setLayout(rawL ? JSON.parse(rawL) : []);
+    } catch {
+      setWidgets([]);
+      setLayout([]);
+    }
+  }, [projId, currentWidgetKey, currentLayoutKey]);
+
+  // Persist widgets and layout to active project key
+  useEffect(() => {
+    if (!projId) return;
+    try {
+      localStorage.setItem(currentWidgetKey, JSON.stringify(widgets));
+      localStorage.setItem(currentLayoutKey, JSON.stringify(layout));
+    } catch { /* ignore */ }
+  }, [widgets, layout, currentWidgetKey, currentLayoutKey, projId]);
 
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -114,10 +126,8 @@ function Dashboard() {
   const [isEditLocked, setIsEditLocked] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [lastRemoved, setLastRemoved] = useState(null);
-  const undoTimerRef = useRef(null);
 
-  // Authenticated User Account State — starts null (not logged in)
+  // Authenticated User Account State
   const [userAccount, setUserAccount] = useState(null);
 
   // Theme State
@@ -135,13 +145,7 @@ function Dashboard() {
     }
   }, [isDarkMode]);
 
-  // Persist widgets and layout to localStorage
-  useEffect(() => {
-    try { localStorage.setItem(WIDGETS_STORAGE_KEY, JSON.stringify(widgets)); }
-    catch { /* ignore */ }
-  }, [widgets]);
-
-  // Sensor data from gateway — starts empty, filled from polling
+  // Sensor data from gateway
   const [sensorData, setSensorData] = useState({});
   const [history, setHistory] = useState([]);
 
@@ -161,7 +165,6 @@ function Dashboard() {
         });
       }
     } catch (e) {
-      // Token expired/invalid → force logout
       if (e.message.includes("401") || e.message.includes("Token")) {
         authAPI.logout();
         setViewMode("landing");
@@ -184,7 +187,7 @@ function Dashboard() {
     if (viewMode === "console") syncBackendData();
   }, [viewMode, syncBackendData]);
 
-  // ─── POLL GATEWAY LOGS FOR REAL SENSOR DATA every 5s ─────────────────────
+  // ─── POLL GATEWAY LOGS FOR REAL SENSOR DATA ─────────────────────
   useEffect(() => {
     if (viewMode !== "console") return;
     const poll = async () => {
@@ -208,7 +211,7 @@ function Dashboard() {
     return () => clearInterval(interval);
   }, [viewMode]);
 
-  // Socket.IO — supplement polling with push when available
+  // Socket.IO
   useEffect(() => {
     if (viewMode !== "console") return;
     socket.emit("subscribe", { deviceId: "node-01" });
@@ -244,15 +247,7 @@ function Dashboard() {
 
       const prevKeys = new Set(prevLayout.map((item) => item.i));
       const brandNew = newLayout.filter((item) => !prevKeys.has(item.i));
-      const finalLayout = [...updatedLayout, ...brandNew];
-
-      try {
-        localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(finalLayout));
-      } catch {
-        // ignore
-      }
-
-      return finalLayout;
+      return [...updatedLayout, ...brandNew];
     });
   };
 
@@ -265,9 +260,9 @@ function Dashboard() {
       id,
       type,
       title: titlePreset || `${type.charAt(0).toUpperCase() + type.slice(1)} Widget`,
-      deviceId: "node-01",
-      channel: channelPreset || (type === "gauge" || type === "status" || type === "chart" ? "temperature" : "pump"),
-      unit: type === "gauge" || type === "status" || type === "chart" ? "°C" : "",
+      deviceId: "esp32-sensor-01",
+      channel: channelPreset || (type === "gauge" || type === "status" || type === "chart" || type === "table" ? "temperature" : "pump"),
+      unit: type === "gauge" || type === "status" || type === "chart" ? "°C" : type === "slider" ? "%" : "",
       config: type === "map" ? { latChannel: "latitude", lngChannel: "longitude" } : type === "image" ? { imageChannel: "ai_image", labelChannel: "ai_label", confidenceChannel: "ai_confidence" } : {}
     };
 
@@ -295,7 +290,7 @@ function Dashboard() {
     });
   };
 
-  // Populate default sample blueprint widgets
+  // Populate sample preset widgets
   const handleLoadSamplePresets = () => {
     triggerSound();
     setWidgets(defaultWidgets);
@@ -320,14 +315,40 @@ function Dashboard() {
     triggerSound();
     setWidgets([]);
     setLayout([]);
-    localStorage.removeItem(WIDGETS_STORAGE_KEY);
-    localStorage.removeItem(LAYOUT_STORAGE_KEY);
+    localStorage.removeItem(currentWidgetKey);
+    localStorage.removeItem(currentLayoutKey);
   };
 
   const handleRemoveWidget = (widgetId) => {
     triggerSound();
     setWidgets((prev) => prev.filter((w) => w.id !== widgetId));
     setLayout((prev) => prev.filter((l) => l.i !== widgetId));
+  };
+
+  // Project Selection Handlers
+  const handleSelectProject = (projNameOrObj) => {
+    if (typeof projNameOrObj === "string") {
+      const found = projects.find(p => p.name === projNameOrObj);
+      if (found) setActiveProject(found);
+      else setActiveProject({ id: Date.now(), name: projNameOrObj });
+    } else if (projNameOrObj && projNameOrObj.id) {
+      setActiveProject(projNameOrObj);
+    }
+    setIsProjectModalOpen(false);
+  };
+
+  const handleCreateProject = (newProj) => {
+    setProjects(prev => [...prev, newProj]);
+    setActiveProject(newProj);
+    setIsProjectModalOpen(false);
+  };
+
+  const handleDeleteProject = (projIdToDelete) => {
+    setProjects(prev => prev.filter(p => p.id !== projIdToDelete));
+    if (activeProject?.id === projIdToDelete) {
+      const remaining = projects.filter(p => p.id !== projIdToDelete);
+      setActiveProject(remaining[0] || { id: 1, name: "Default Project" });
+    }
   };
 
   // ─── AUTH GATE RENDERS ───────────────────────────────────────────────────
@@ -361,7 +382,7 @@ function Dashboard() {
 
   return (
     <div className="blynk-console-wrapper">
-      {/* ── TOPBAR: BLYNK CONSOLE HEADER (Matching Image 1, 2, 3) ── */}
+      {/* ── TOPBAR: BLYNK CONSOLE HEADER ── */}
       <header className="blynk-topbar">
         <div className="topbar-left">
           {/* Brand Logo */}
@@ -372,19 +393,18 @@ function Dashboard() {
             </span>
           </div>
 
-          {/* Organization Dropdown Selector */}
+          {/* Organization / Project Dropdown Selector */}
           <div
             className="blynk-org-selector"
             onClick={() => setIsProjectModalOpen(true)}
-            title="Switch Organization / Project"
+            title="Switch Project Tenant"
           >
-            <span>My organization - {activeProject?.name || "—"}</span>
+            <span>Project: {activeProject?.name || "—"}</span>
             <ChevronDown size={14} className="chevron" />
           </div>
         </div>
 
         <div className="topbar-right">
-          {/* Message Quota Indicator (Matching Image 1, 2, 3) */}
           <div className="blynk-message-quota-bar">
             <div className="quota-text">
               <span>Messages used:</span> <strong>0 of 100.0k</strong>
@@ -394,7 +414,6 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Public Cover Toggle Button */}
           <button
             type="button"
             className="btn-blynk-pill-sm"
@@ -404,7 +423,6 @@ function Dashboard() {
             <Globe size={14} /> Landing Cover
           </button>
 
-          {/* Theme Toggle Button */}
           <button
             type="button"
             className="blynk-icon-btn"
@@ -414,7 +432,6 @@ function Dashboard() {
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
-          {/* Audio Feedback Toggle */}
           <button
             type="button"
             className="blynk-icon-btn"
@@ -424,7 +441,6 @@ function Dashboard() {
             {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
 
-          {/* Notifications / Announcements */}
           <button type="button" className="blynk-icon-btn" title="Announcements & Messages">
             <Megaphone size={16} />
           </button>
@@ -433,7 +449,6 @@ function Dashboard() {
             <HelpCircle size={16} />
           </button>
 
-          {/* User Profile Avatar */}
           <div style={{ position: "relative" }}>
             <div className="blynk-user-avatar" onClick={() => setShowProfileMenu(!showProfileMenu)}>
               <div className="avatar-circle">
@@ -472,7 +487,7 @@ function Dashboard() {
 
       {/* ── BLYNK CONSOLE BODY: SIDEBAR + MAIN CONTENT ── */}
       <div className="blynk-console-body">
-        {/* ── LEFT SIDEBAR NAVIGATION (Matching Image 1, 2, 3) ── */}
+        {/* ── LEFT SIDEBAR NAVIGATION ── */}
         <aside className="blynk-sidebar">
           <div className="sidebar-nav-group">
             <button
@@ -588,18 +603,16 @@ function Dashboard() {
             />
           )}
 
-          {/* TAB 2: DASHBOARDS (MATCHING IMAGE 2) */}
+          {/* TAB 2: DASHBOARDS */}
           {activeConsoleTab === "dashboards" && (
             <div className="blynk-dashboard-builder-view">
-              {/* DASHBOARD TOP TOOLBAR */}
               <div className="dashboard-toolbar-bar">
                 <div className="toolbar-left-info">
-                  <h2>My Dashboard</h2>
-                  <span className="widget-count-chip">{widgets.length} Widgets</span>
+                  <h2>{activeProject?.name || "My Dashboard"}</h2>
+                  <span className="widget-count-chip">{widgets.length} Widgets • Project #{projId}</span>
                 </div>
 
                 <div className="toolbar-right-actions">
-                  {/* Lock / Edit Mode Toggle */}
                   <button
                     type="button"
                     className={`btn-blynk-pill-sm ${!isEditLocked ? "active-edit" : ""}`}
@@ -631,9 +644,8 @@ function Dashboard() {
                 </div>
               </div>
 
-              {/* DASHBOARD BODY AREA: WIDGET BOX SIDEBAR + CANVAS */}
               <div className="dashboard-canvas-layout-container">
-                {/* BLYNK WIDGET BOX PANEL (Visible in Edit Mode - Matching Image 2) */}
+                {/* WIDGET BOX PANEL */}
                 {!isEditLocked && (
                   <aside className="blynk-widget-box-panel">
                     <div className="widget-box-header">
@@ -644,80 +656,81 @@ function Dashboard() {
                     <div className="widget-box-section">
                       <div className="box-section-title">Controls</div>
 
-                      {/* Switch Widget Option */}
                       <div
                         className="widget-box-item"
-                        onDoubleClick={() => handleAddWidgetFromBox("boolean", "Pump Switch", "pump")}
                         onClick={() => handleAddWidgetFromBox("boolean", "Pump Switch", "pump")}
-                        title="Klik atau Double Click untuk menambah Switch"
+                        title="Klik untuk menambah Switch"
                       >
                         <div className="item-icon-sq"><ToggleLeft size={18} /></div>
                         <div>
                           <strong>Switch</strong>
-                          <span>Digital On/Off Relay Control</span>
+                          <span>Digital Relay Control</span>
                         </div>
                       </div>
 
-                      {/* Slider Option */}
                       <div
                         className="widget-box-item"
-                        onDoubleClick={() => handleAddWidgetFromBox("gauge", "Slider Control", "humidity")}
-                        onClick={() => handleAddWidgetFromBox("gauge", "Slider Control", "humidity")}
+                        onClick={() => handleAddWidgetFromBox("slider", "PWM Speed Control", "humidity")}
+                        title="Klik untuk menambah Slider PWM"
                       >
                         <div className="item-icon-sq"><Sliders size={18} /></div>
                         <div>
                           <strong>Slider</strong>
-                          <span>Analog Value Controller</span>
+                          <span>Analog PWM Controller</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="widget-box-section" style={{ marginTop: 16 }}>
-                      <div className="box-section-title">Tiles & Displays</div>
+                      <div className="box-section-title">Tiles & Data Tables</div>
 
-                      {/* Label Value Tile */}
                       <div
                         className="widget-box-item"
-                        onDoubleClick={() => handleAddWidgetFromBox("status", "Temperature Label", "temperature")}
                         onClick={() => handleAddWidgetFromBox("status", "Temperature Label", "temperature")}
                       >
                         <div className="item-icon-sq"><Hash size={18} /></div>
                         <div>
-                          <strong>Label</strong>
-                          <span>Single Metric Value Display</span>
+                          <strong>Label Tile</strong>
+                          <span>Single Metric Display</span>
                         </div>
                       </div>
 
-                      {/* Gauge Speedometer */}
                       <div
                         className="widget-box-item"
-                        onDoubleClick={() => handleAddWidgetFromBox("gauge", "Soil Moisture Ring", "humidity")}
                         onClick={() => handleAddWidgetFromBox("gauge", "Soil Moisture Ring", "humidity")}
                       >
                         <div className="item-icon-sq"><Activity size={18} /></div>
                         <div>
                           <strong>Gauge</strong>
-                          <span>Radial Speedometer Ring</span>
+                          <span>Speedometer Gauge</span>
                         </div>
                       </div>
 
-                      {/* Chart Option */}
                       <div
                         className="widget-box-item"
-                        onDoubleClick={() => handleAddWidgetFromBox("chart", "Telemetry History", "temperature")}
                         onClick={() => handleAddWidgetFromBox("chart", "Telemetry History", "temperature")}
                       >
                         <div className="item-icon-sq"><Activity size={18} /></div>
                         <div>
                           <strong>Chart</strong>
-                          <span>Historical Telemetry Line</span>
+                          <span>Line Chart Stream</span>
                         </div>
                       </div>
 
-                      {/* GPS Map Option */}
                       <div
                         className="widget-box-item"
-                        onDoubleClick={() => handleAddWidgetFromBox("map", "Node Location", "latitude")}
+                        onClick={() => handleAddWidgetFromBox("table", "Sensor Telemetry Table", "temperature")}
+                        title="Klik untuk menambah Tabel Telemetri Log"
+                      >
+                        <div className="item-icon-sq"><Table size={18} /></div>
+                        <div>
+                          <strong>Sensor Table</strong>
+                          <span>Live Telemetry Records</span>
+                        </div>
+                      </div>
+
+                      <div
+                        className="widget-box-item"
                         onClick={() => handleAddWidgetFromBox("map", "Node Location", "latitude")}
                       >
                         <div className="item-icon-sq"><MapPin size={18} /></div>
@@ -727,16 +740,14 @@ function Dashboard() {
                         </div>
                       </div>
 
-                      {/* Image Camera Feed */}
                       <div
                         className="widget-box-item"
-                        onDoubleClick={() => handleAddWidgetFromBox("image", "AI Camera Stream", "ai_image")}
                         onClick={() => handleAddWidgetFromBox("image", "AI Camera Stream", "ai_image")}
                       >
                         <div className="item-icon-sq"><Eye size={18} /></div>
                         <div>
                           <strong>Image Feed</strong>
-                          <span>ONNX AI Camera Stream</span>
+                          <span>AI Camera Feed</span>
                         </div>
                       </div>
                     </div>
@@ -745,20 +756,18 @@ function Dashboard() {
 
                 {/* MAIN GRID CANVAS */}
                 <div ref={containerRef} className="canvas-grid-viewport">
-                  {/* IF CANVAS IS EMPTY (MATCHING IMAGE 2 PLACEHOLDER) */}
                   {widgets.length === 0 ? (
                     <div className="blynk-empty-canvas-placeholder">
                       <div className="empty-dashed-box">
                         <MousePointerClick size={44} className="empty-icon" />
-                        <h3>Add new widget</h3>
-                        <p>Double click the widget on the left or click to add it to the canvas</p>
+                        <h3>Add new widget to "{activeProject?.name}"</h3>
+                        <p>Klik widget di sebelah kiri untuk menambahkannya ke kanvas project ini</p>
                         <button type="button" className="btn-blynk-green-action" style={{ marginTop: 16 }} onClick={handleLoadSamplePresets}>
                           <Sparkles size={16} /> Load Sample Widgets
                         </button>
                       </div>
                     </div>
                   ) : (
-                    /* RENDER GRID LAYOUT */
                     mounted && (
                       <ReactGridLayout
                         className="dashboard-grid-layout"
@@ -801,9 +810,8 @@ function Dashboard() {
                               widget={widget}
                               sensorData={sensorData}
                               history={history}
-                              onToggle={(newState) => {
-                                triggerSound();
-                                setSensorData((prev) => ({ ...prev, [widget.channel]: newState }));
+                              onToggle={(ch, val) => {
+                                setSensorData(prev => ({ ...prev, [ch]: val !== undefined ? val : !prev[ch] }));
                               }}
                             />
                           </div>
@@ -835,7 +843,7 @@ function Dashboard() {
             <AlertsView activeProject={activeProject} />
           )}
 
-          {/* TAB 7: USERS & TEAMS (MATCHING IMAGE 2) */}
+          {/* TAB 7: USERS & TEAMS */}
           {activeConsoleTab === "users" && (
             <UsersView activeProject={activeProject} userAccount={userAccount} />
           )}
@@ -860,37 +868,24 @@ function Dashboard() {
           onLoginSuccess={(accountData) => {
             setUserAccount(accountData);
             setIsLoginOpen(false);
-            if (viewMode !== "console") setViewMode("console");
-            triggerSound();
+            setViewMode("console");
           }}
         />
       )}
 
-      {/* PROJECT / ORGANIZATION MODAL */}
+      {/* PROJECT MANAGER MODAL */}
       {isProjectModalOpen && (
         <ProjectModal
           projects={projects}
           activeProject={activeProject?.name}
-          onSelectProject={(projName) => {
-            const found = projects.find(p => p.name === projName);
-            setActiveProject(found || null);
-            setIsProjectModalOpen(false);
-            triggerSound();
-          }}
-          onCreateProject={(newProj) => {
-            setProjects(prev => [...prev, newProj]);
-            setActiveProject(newProj);
-            setIsProjectModalOpen(false);
-          }}
-          onDeleteProject={(projId) => {
-            setProjects(prev => prev.filter(p => p.id !== projId));
-            if (activeProject?.id === projId) setActiveProject(null);
-          }}
+          onSelectProject={handleSelectProject}
+          onCreateProject={handleCreateProject}
+          onDeleteProject={handleDeleteProject}
           onClose={() => setIsProjectModalOpen(false)}
         />
       )}
 
-      {/* WIDGET CONFIGURATION MODAL */}
+      {/* WIDGET CONFIG MODAL */}
       {editingWidget && (
         <WidgetConfigModal
           widget={editingWidget}
@@ -899,7 +894,6 @@ function Dashboard() {
           onSave={(updatedWidget) => {
             setWidgets(prev => prev.map(w => w.id === updatedWidget.id ? updatedWidget : w));
             setEditingWidget(null);
-            triggerSound();
           }}
         />
       )}

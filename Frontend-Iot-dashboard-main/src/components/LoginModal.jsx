@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Lock, Mail, Shield, Sparkles, LogIn, UserPlus } from "lucide-react";
+import { X, Lock, Mail, Shield, Sparkles, LogIn, UserPlus, AlertTriangle, ArrowRight } from "lucide-react";
 import confetti from "canvas-confetti";
 import { authAPI } from "../services/api";
 
@@ -49,7 +49,12 @@ function LoginModal({ onClose, onLoginSuccess }) {
       onClose();
     } catch (err) {
       console.error("Auth action failed:", err);
-      setError(err.message || "Gagal memproses autentikasi. Pastikan data benar.");
+      const errMsg = err.message || "Gagal memproses autentikasi.";
+      if (isRegister && (errMsg.includes("already") || errMsg.includes("terdaftar") || errMsg.includes("exist") || errMsg.includes("400"))) {
+        setError(`⚠️ Email "${email}" sudah terdaftar dalam sistem. Anda dapat langsung masuk dengan password akun Anda.`);
+      } else {
+        setError(errMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -63,7 +68,7 @@ function LoginModal({ onClose, onLoginSuccess }) {
             <div className="brand-icon-emerald" style={{ width: 32, height: 32, fontSize: 16 }}>🌿</div>
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)" }}>
-                {isRegister ? "Buat Akun Modul A" : "Autentikasi Akun TIP"}
+                {isRegister ? "Buat Akun Platform TIP" : "Autentikasi Akun TIP"}
               </h2>
               <p style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500 }}>
                 IoT Multi-Tenant Platform • Telecom Infra Project
@@ -116,15 +121,34 @@ function LoginModal({ onClose, onLoginSuccess }) {
             />
           </div>
 
-          <div className="form-group-field">
-            <label>Account Tier (DB Schema Modul A)</label>
-            <select value={tier} onChange={(e) => setTier(e.target.value)} style={{ width: "100%" }}>
-              <option value="paid">PAID TIER (Unlimited Telemetry & AI Sandbox Access)</option>
-              <option value="free">FREE TIER (Standard Rate Limit)</option>
-            </select>
-          </div>
+          {isRegister && (
+            <div className="form-group-field">
+              <label>Account Tier (DB Schema Modul A)</label>
+              <select value={tier} onChange={(e) => setTier(e.target.value)} style={{ width: "100%" }}>
+                <option value="paid">PAID TIER (Unlimited Telemetry & AI Sandbox Access)</option>
+                <option value="free">FREE TIER (Standard Rate Limit)</option>
+              </select>
+            </div>
+          )}
 
-          {error && <p style={{ color: "#EF4444", fontSize: 12, fontWeight: 700 }}>{error}</p>}
+          {/* IN-MODAL ALERT NOTIFICATION FOR EXISTING ACCOUNTS OR ERRORS */}
+          {error && (
+            <div className="login-modal-alert-box">
+              <AlertTriangle size={18} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#FEF3C7" }}>{error}</p>
+                {isRegister && error.includes("sudah terdaftar") && (
+                  <button
+                    type="button"
+                    className="btn-switch-to-login"
+                    onClick={() => { setIsRegister(false); setError(""); }}
+                  >
+                    Masuk ke Akun Ini <ArrowRight size={12} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"

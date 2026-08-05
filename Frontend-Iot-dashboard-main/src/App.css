@@ -1848,6 +1848,375 @@ body:not(.light-mode) .btn-blynk-outlined {
   gap: 8px;
 }
 
+/* ── ESP32 INTEGRATION SECTION IN GET STARTED ── */
+.esp32-integration-section {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+body.dark-mode .esp32-integration-section,
+body:not(.light-mode) .esp32-integration-section {
+  background: #0B241C;
+  border-color: rgba(34, 197, 94, 0.25);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.esp32-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.esp32-header-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.esp32-badge-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.esp32-header-title h3 {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0F172A !important;
+  margin: 0 0 2px 0;
+}
+
+body.dark-mode .esp32-header-title h3,
+body:not(.light-mode) .esp32-header-title h3 {
+  color: #FFFFFF !important;
+}
+
+.esp32-header-title p {
+  font-size: 12px;
+  color: #64748B;
+  margin: 0;
+}
+
+/* Protocol Switcher Pills */
+.esp32-protocol-selector {
+  display: flex;
+  background: #F1F5F9;
+  padding: 4px;
+  border-radius: 8px;
+  gap: 4px;
+  border: 1px solid #E2E8F0;
+}
+
+body.dark-mode .esp32-protocol-selector,
+body:not(.light-mode) .esp32-protocol-selector {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.protocol-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748B;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.protocol-btn.active {
+  background: #22C55E;
+  color: #000000;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+}
+
+body.dark-mode .protocol-btn:not(.active),
+body:not(.light-mode) .protocol-btn:not(.active) {
+  color: #94A3B8;
+}
+
+/* Spec Banner */
+.esp32-spec-banner {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+body.dark-mode .esp32-spec-banner,
+body:not(.light-mode) .esp32-spec-banner {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(34, 197, 94, 0.15);
+}
+
+.spec-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spec-label {
+  font-size: 11px;
+  color: #64748B;
+  font-weight: 600;
+}
+
+.spec-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0F172A;
+}
+
+body.dark-mode .spec-val,
+body:not(.light-mode) .spec-val {
+  color: #E2E8F0;
+}
+
+.spec-val.highlight {
+  color: #22C55E;
+}
+
+.spec-val.code-font {
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  color: #38BDF8;
+}
+
+/* Config Inputs Panel */
+.esp32-config-panel {
+  background: #F1F5F9;
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+  border: 1px solid #CBD5E1;
+}
+
+body.dark-mode .esp32-config-panel,
+body:not(.light-mode) .esp32-config-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.config-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+body.dark-mode .config-title,
+body:not(.light-mode) .config-title {
+  color: #86EFAC;
+}
+
+.esp32-inputs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.esp32-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.esp32-input-group label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748B;
+}
+
+body.dark-mode .esp32-input-group label,
+body:not(.light-mode) .esp32-input-group label {
+  color: #94A3B8;
+}
+
+.esp32-input-group input {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  font-size: 12px;
+  color: #0F172A;
+  outline: none;
+  transition: all 0.2s;
+  font-family: monospace;
+}
+
+.esp32-input-group input:focus {
+  border-color: #22C55E;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+body.dark-mode .esp32-input-group input,
+body:not(.light-mode) .esp32-input-group input {
+  background: #061712;
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #86EFAC;
+}
+
+/* Code Block Container */
+.esp32-code-block-container {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #1E293B;
+  background: #090D16;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.code-block-header {
+  background: #1E293B;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.code-filename {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #38BDF8;
+  font-family: 'Fira Code', monospace;
+}
+
+.btn-copy-code {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #22C55E;
+  color: #000000;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-copy-code:hover {
+  background: #4ADE80;
+}
+
+.copied-icon {
+  color: #000000;
+}
+
+.code-viewport {
+  padding: 16px;
+  margin: 0;
+  max-height: 380px;
+  overflow-y: auto;
+  font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #E2E8F0;
+  background: #090D16;
+}
+
+.code-viewport code {
+  color: #A7F3D0;
+  white-space: pre;
+}
+
+/* Steps Grid */
+.esp32-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.esp32-step-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+body.dark-mode .esp32-step-card,
+body:not(.light-mode) .esp32-step-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(34, 197, 94, 0.15);
+}
+
+.step-number {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #22C55E;
+  color: #000000;
+  font-weight: 800;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.step-info h5 {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0F172A !important;
+  margin: 0 0 4px 0;
+}
+
+body.dark-mode .step-info h5,
+body:not(.light-mode) .step-info h5 {
+  color: #FFFFFF !important;
+}
+
+.step-info p {
+  font-size: 11px;
+  color: #64748B;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.step-info code {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22C55E;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
 /* ── SIDEBAR CHECKLIST (MATCHING IMAGE 1) ── */
 .blynk-welcome-card {
   background: #FFFFFF;
@@ -2521,6 +2890,361 @@ body:not(.light-mode) .key-display-row {
   font-weight: 900;
   letter-spacing: -0.03em;
 }
+
+/* ── TABLE WIDGET STYLING ── */
+.table-widget-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: 14px;
+}
+
+.widget-header-flex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.widget-icon-emerald {
+  color: #22C55E;
+}
+
+.widget-title-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.table-widget-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 10px;
+}
+
+.table-widget-search-bar input {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 12px;
+  outline: none;
+  flex: 1;
+}
+
+.count-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748B;
+}
+
+.table-widget-scroll-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.telemetry-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  text-align: left;
+}
+
+.telemetry-data-table th {
+  background: rgba(0, 0, 0, 0.3);
+  color: #94A3B8;
+  padding: 8px 10px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border);
+}
+
+.telemetry-data-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+}
+
+.device-chip {
+  background: rgba(38, 182, 110, 0.15);
+  color: #22C55E;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 10px;
+}
+
+.temp-val { color: #F87171; font-weight: 700; }
+.hum-val { color: #38BDF8; font-weight: 700; }
+
+.status-pill-online {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(34, 197, 94, 0.2);
+  color: #86EFAC;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+/* ── SLIDER WIDGET STYLING ── */
+.slider-widget-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  padding: 14px;
+}
+
+.slider-val-badge {
+  background: #22C55E;
+  color: #000000;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.slider-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.slider-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #64748B;
+  font-weight: 700;
+}
+
+.blynk-range-input {
+  accent-color: #22C55E;
+  width: 100%;
+  cursor: pointer;
+}
+
+.slider-footer-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: #94A3B8;
+  margin-top: 4px;
+}
+
+/* ── LOGIN MODAL ALERT NOTIFICATION BOX ── */
+.login-modal-alert-box {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.btn-switch-to-login {
+  background: #F59E0B;
+  color: #000000;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  margin-top: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.btn-switch-to-login:hover {
+  background: #FBBF24;
+}
+
+/* ── MASTER TUTORIAL MODULE BAR & CARDS ── */
+.master-tutorial-module-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.tutorial-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+body.dark-mode .tutorial-tab-btn,
+body:not(.light-mode) .tutorial-tab-btn {
+  background: #0B241C;
+  border-color: rgba(34, 197, 94, 0.2);
+  color: #94A3B8;
+}
+
+.tutorial-tab-btn.active {
+  background: #22C55E !important;
+  color: #000000 !important;
+  border-color: #22C55E !important;
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.tutorial-module-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+body.dark-mode .tutorial-module-card,
+body:not(.light-mode) .tutorial-module-card {
+  background: #0B241C;
+  border-color: rgba(34, 197, 94, 0.25);
+}
+
+.tutorial-module-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
+  padding-bottom: 12px;
+}
+
+body.dark-mode .tutorial-module-header,
+body:not(.light-mode) .tutorial-module-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.tutorial-module-header h4 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0F172A !important;
+  margin: 0 0 2px 0;
+}
+
+body.dark-mode .tutorial-module-header h4,
+body:not(.light-mode) .tutorial-module-header h4 {
+  color: #FFFFFF !important;
+}
+
+.tutorial-module-header p {
+  font-size: 12px;
+  color: #64748B;
+  margin: 0;
+}
+
+.tutorial-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tutorial-step-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  padding: 14px;
+  border-radius: 8px;
+}
+
+body.dark-mode .tutorial-step-row,
+body:not(.light-mode) .tutorial-step-row {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.step-badge-green {
+  background: #22C55E;
+  color: #000;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.step-badge-amber {
+  background: #F59E0B;
+  color: #000;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.step-badge-cyan {
+  background: #38BDF8;
+  color: #000;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.step-badge-purple {
+  background: #A855F7;
+  color: #FFF;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.tutorial-step-row strong {
+  display: block;
+  font-size: 13px;
+  color: #0F172A;
+  margin-bottom: 2px;
+}
+
+body.dark-mode .tutorial-step-row strong,
+body:not(.light-mode) .tutorial-step-row strong {
+  color: #FFFFFF;
+}
+
+.tutorial-step-row p {
+  font-size: 12px;
+  color: #64748B;
+  margin: 0;
+}
+
 
 .landing-logo-text .logo-dot { color: #94A3B8; }
 
