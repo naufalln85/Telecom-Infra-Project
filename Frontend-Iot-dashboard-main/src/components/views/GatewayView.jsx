@@ -77,12 +77,11 @@ function GatewayView() {
     setTestLoading(true);
     setTestResult(null);
     try {
-      const result = await gatewayAPI.sendTestData(
-        testForm.apiKey,
-        testForm.deviceId,
-        testForm.temperature,
-        testForm.humidity
-      );
+      const result = await gatewayAPI.sendTestData(testForm.apiKey, {
+        device_id: testForm.deviceId.trim(),
+        temperature: Number(testForm.temperature),
+        humidity: Number(testForm.humidity),
+      });
       setTestResult({ success: true, data: result });
       // Refresh data after send
       setTimeout(fetchData, 1000);

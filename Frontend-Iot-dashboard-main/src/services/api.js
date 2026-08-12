@@ -12,7 +12,11 @@ const getBaseUrl = () => {
   return `http://${h}:8000`;
 };
 
-const API_BASE_URL = getBaseUrl();
+// Same-origin by default: Vite/Nginx proxy /api to FastAPI. This works from
+// remote devices and HTTPS too; VITE_API_BASE_URL remains available for APIs
+// deliberately hosted elsewhere.
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const GATEWAY_BASE_URL = (import.meta.env.VITE_GATEWAY_BASE_URL || "/gateway").replace(/\/$/, "");
 
 // Token management
 const TOKEN_KEY = "tip_jwt_token";
@@ -253,15 +257,16 @@ export const gatewayAPI = {
     return await apiFetch("/api/v1/gateway/stats");
   },
   async sendTestData(apiKey, data = {}) {
-    const gwHost = window.location.hostname;
-    const gwPort = gwHost === "localhost" ? 3000 : 3000;
-    const GATEWAY_URL = `http://${gwHost}:${gwPort}`;
-    const response = await fetch(`${GATEWAY_URL}/api/v1/telemetry`, {
+    const response = await fetch(`${GATEWAY_BASE_URL}/api/v1/telemetry`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": apiKey },
       body: JSON.stringify(data),
     });
-    return await response.json();
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(result.detail || result.message || `Gateway HTTP ${response.status}`);
+    }
+    return result;
   },
 };
 

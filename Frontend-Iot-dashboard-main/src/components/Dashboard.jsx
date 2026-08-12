@@ -26,7 +26,6 @@ import AIBuilderView from "./views/AIBuilderView";
 import UsersView from "./views/UsersView";
 import WidgetConfigModal from "./WidgetConfigModal";
 
-import socket from "../socket";
 import confetti from "canvas-confetti";
 import {
   LayoutDashboard, Cpu, Bell, Search, Plus, X, Undo2, Lock, Unlock,
@@ -221,26 +220,6 @@ function Dashboard() {
     return () => clearInterval(interval);
   }, [viewMode]);
 
-  // Socket.IO
-  useEffect(() => {
-    if (viewMode !== "console") return;
-    socket.emit("subscribe", { deviceId: "node-01" });
-    socket.on("device-data", (data) => {
-      setSensorData(prev => ({ ...prev, ...data }));
-      setHistory(prev => [
-        ...prev.slice(-19),
-        {
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          ...data,
-        },
-      ]);
-    });
-    return () => {
-      socket.emit("unsubscribe", { deviceId: "node-01" });
-      socket.off("device-data");
-    };
-  }, [viewMode]);
-
   const triggerSound = () => {
     if (soundEnabled) playClickSound();
   };
@@ -397,9 +376,9 @@ function Dashboard() {
         <div className="topbar-left">
           {/* Brand Logo */}
           <div className="blynk-brand" onClick={() => setViewMode("landing")} title="Switch to Public Cover Page">
-            <div className="blynk-logo-square">B</div>
+            <div className="blynk-logo-square">Y</div>
             <span className="blynk-brand-name">
-              Blynk<span className="dot">.Console</span>
+              Yugma<span className="dot">.IoT</span>
             </span>
           </div>
 
@@ -889,7 +868,7 @@ function Dashboard() {
       {isProjectModalOpen && (
         <ProjectModal
           projects={projects}
-          activeProject={activeProject?.name}
+          activeProject={activeProject}
           onSelectProject={handleSelectProject}
           onCreateProject={handleCreateProject}
           onDeleteProject={handleDeleteProject}

@@ -4169,6 +4169,36 @@ body:not(.light-mode) .tutorial-step-row strong {
 
 .landing-logo-text .logo-dot { color: #94A3B8; }
 
+/* Yugma visual system — based on Colorful IoT Dashboard Design. */
+:root {
+  --emerald-neon: #C65C55; --emerald-neon-hover: #D77A71; --emerald-mint: #F1B5AF; --emerald-light-glow: #F6D0CC;
+  --emerald-dark-bg: #241A26; --emerald-deep-slate: #17121B; --emerald-dark-card: #2B202F;
+  --accent-amber: #D4913A; --accent-cyan: #2AA6A0; --accent-purple: #931783; --accent-rose: #AD3A6C;
+  --bg-dark-canvas: #17121B;
+  --bg-gradient-mesh: radial-gradient(ellipse 110% 78% at 4% -12%, rgba(147,23,131,.28), transparent 58%), radial-gradient(ellipse 90% 70% at 102% 108%, rgba(198,92,85,.18), transparent 64%);
+  --glass-card-bg: rgba(43,32,47,.86); --glass-card-hover: rgba(56,40,61,.96); --glass-card-border: rgba(235,220,237,.12); --glass-card-border-hover: rgba(198,92,85,.55);
+  --text-primary: #F4EDF5; --text-secondary: #B9ABB9; --text-muted: #8B7D8E; --radius-bento: 18px; --radius-card: 14px;
+  --shadow-bento: 0 12px 30px rgba(0,0,0,.25); --shadow-hover: 0 18px 40px rgba(0,0,0,.38), 0 0 20px rgba(198,92,85,.12);
+}
+.blynk-console-wrapper { min-height: 100vh; background: var(--bg-gradient-mesh), var(--bg-dark-canvas); }
+.blynk-topbar { min-height: 62px; padding: 0 20px; background: rgba(36,26,38,.94); border-bottom: 1px solid var(--glass-card-border); box-shadow: none; }
+.blynk-logo-square { background: linear-gradient(135deg, #C65C55, #931783) !important; color: #fff !important; border-radius: 10px !important; box-shadow: 0 4px 14px rgba(198,92,85,.28); }
+.blynk-brand-name { color: var(--text-primary) !important; font-size: 15px !important; }.blynk-brand-name .dot { color: #C65C55 !important; }
+.blynk-org-selector, .btn-blynk-pill-sm, .blynk-icon-btn { border-color: var(--glass-card-border) !important; background: rgba(255,255,255,.035) !important; color: var(--text-secondary) !important; }
+.blynk-org-selector:hover, .btn-blynk-pill-sm:hover, .blynk-icon-btn:hover, .btn-blynk-pill-sm.active-edit { border-color: rgba(198,92,85,.7) !important; background: rgba(198,92,85,.14) !important; color: #F4EDF5 !important; }
+.quota-progress-fill, .btn-blynk-green-action, .btn-emerald-primary { background: linear-gradient(135deg, #C65C55, #AD3A6C) !important; color: #fff !important; box-shadow: 0 4px 14px rgba(198,92,85,.24) !important; }
+.blynk-console-body { min-height: calc(100vh - 62px); }.blynk-sidebar { width: 218px; background: rgba(28,21,31,.96) !important; border-right: 1px solid var(--glass-card-border) !important; }
+.sidebar-item { color: var(--text-secondary) !important; border-left: 2px solid transparent !important; border-radius: 9px !important; margin: 2px 8px !important; width: calc(100% - 16px) !important; }.sidebar-item:hover { background: rgba(255,255,255,.045) !important; color: var(--text-primary) !important; }
+.sidebar-item.active { color: #F1B5AF !important; background: linear-gradient(90deg, rgba(198,92,85,.2), rgba(147,23,131,.1)) !important; border-left-color: #C65C55 !important; }.sidebar-divider { border-color: var(--glass-card-border) !important; }
+.blynk-main-canvas-area { background: transparent !important; padding: 24px !important; }.dashboard-toolbar-bar { background: transparent !important; border-bottom-color: var(--glass-card-border) !important; padding-bottom: 18px !important; }
+.toolbar-left-info h2, .hero-bento-header h1 { color: var(--text-primary) !important; }.widget-count-chip { background: rgba(147,23,131,.16) !important; color: #E2B6DD !important; border-color: rgba(147,23,131,.3) !important; }
+.blynk-widget-box-panel, .widget-bento-card, .blynk-data-table-container, .dashboard-canvas-layout-container { background: var(--glass-card-bg) !important; border-color: var(--glass-card-border) !important; border-radius: 14px !important; box-shadow: var(--shadow-bento) !important; }
+.blynk-widget-box-panel { border-right: 1px solid var(--glass-card-border) !important; }.widget-box-item { border-color: var(--glass-card-border) !important; background: rgba(255,255,255,.025) !important; }.widget-box-item:hover { border-color: rgba(198,92,85,.5) !important; background: rgba(198,92,85,.09) !important; }
+.item-icon-sq, .card-header-icon { background: rgba(198,92,85,.14) !important; color: #E59A92 !important; }.canvas-grid-viewport, .blynk-empty-canvas-placeholder { background: rgba(17,13,20,.35) !important; border-color: var(--glass-card-border) !important; border-radius: 14px !important; }
+.grid-item-wrapper { border-color: var(--glass-card-border) !important; border-radius: 14px !important; overflow: hidden; }.blynk-profile-dropdown, .widget-builder-dialog { background: #2B202F !important; border-color: var(--glass-card-border) !important; }.avatar-circle { background: linear-gradient(135deg, #C65C55, #931783) !important; }
+body.light-mode { --bg-dark-canvas: #F8F4F7; --glass-card-bg: rgba(255,255,255,.88); --glass-card-hover: #fff; --glass-card-border: rgba(71,47,72,.13); --text-primary: #2A1D2B; --text-secondary: #695B6A; --text-muted: #857788; } body.light-mode .blynk-topbar, body.light-mode .blynk-sidebar { background: rgba(255,255,255,.94) !important; }
+@media (max-width: 900px) { .blynk-sidebar { width: 60px; } .blynk-sidebar .sidebar-item span { display: none; } .blynk-message-quota-bar, .btn-blynk-pill-sm { display: none; } .blynk-main-canvas-area { padding: 14px !important; } }
+
 .landing-badge {
   font-size: 10px;
   font-weight: 800;

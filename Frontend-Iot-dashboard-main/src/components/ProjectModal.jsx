@@ -35,14 +35,10 @@ function ProjectModal({ projects, activeProject, onSelectProject, onCreateProjec
         colors: ["#10B981", "#34D399", "#A7F3D0"]
       });
     } catch (err) {
-      console.warn("Backend project creation warning:", err);
-      // Fallback local state creation
-      const newProj = {
-        id: `proj-${Date.now()}`,
-        name: newProjectName.trim(),
-      };
-      onCreateProject(newProj);
-      setNewProjectName("");
+      // A project must be persisted before it becomes selectable. Creating a
+      // temporary local project here previously produced dashboards with no
+      // valid database relationship after a refresh.
+      setError(err.message || "Project gagal dibuat. Periksa koneksi API dan coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -51,10 +47,10 @@ function ProjectModal({ projects, activeProject, onSelectProject, onCreateProjec
   const handleDelete = async (projId) => {
     try {
       await projectsAPI.delete(projId);
+      onDeleteProject(projId);
     } catch (err) {
-      console.warn("Backend project deletion warning:", err);
+      setError(err.message || "Project gagal dihapus. Periksa koneksi API dan coba lagi.");
     }
-    onDeleteProject(projId);
   };
 
   return (
@@ -110,7 +106,7 @@ function ProjectModal({ projects, activeProject, onSelectProject, onCreateProjec
           <label style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>Daftar Project Aktif:</label>
 
           {projects.map((proj) => {
-            const isSelected = activeProject === proj.name;
+            const isSelected = activeProject?.id === proj.id;
             return (
               <div
                 key={proj.id}
@@ -124,7 +120,7 @@ function ProjectModal({ projects, activeProject, onSelectProject, onCreateProjec
                   border: isSelected ? "1px solid var(--emerald-neon)" : "1px solid rgba(255, 255, 255, 0.08)",
                   cursor: "pointer"
                 }}
-                onClick={() => onSelectProject(proj.name)}
+                onClick={() => onSelectProject(proj)}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <Layers size={16} style={{ color: isSelected ? "var(--emerald-neon)" : "var(--text-secondary)" }} />

@@ -49,3 +49,8 @@ redis_data/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Temporary Figma design exports
+Colorful IoT Dashboard Design/
+DB Relation/Colorful IoT Dashboard Design/
+
