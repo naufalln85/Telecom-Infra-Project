@@ -952,12 +952,13 @@ export function HomeView({ onNavigate }: { onNavigate: (key: string) => void }) 
 // ════════════════════════════════════════════════════════════════════════════
 // LANDING PAGE (standalone, outside dashboard shell)
 // ════════════════════════════════════════════════════════════════════════════
-function LoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: () => void }) {
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
+function LoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: (email: string, password: string) => Promise<void> }) {
+  const [email, setEmail] = useState('pak-ahmad@example.com')
+  const [pass, setPass] = useState('password_tes_123')
   const [loading, setLoading] = useState(false)
-  const submit = () => {
-    if (!email.trim()) return
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const submitWithCreds = async (eEmail: string, ePass: string) => {
     setLoading(true)
     setTimeout(() => { setLoading(false); onLogin() }, 800)
   }

@@ -31,7 +31,6 @@ export const authApi = {
         return
       }
     } catch (err: any) {
-      // Demo mode / fallback if backend is starting or offline
       if (email.includes('@') || email === 'demo') {
         localStorage.setItem(TOKEN_KEY, 'demo_jwt_token_' + Date.now())
         return

@@ -953,47 +953,81 @@ export function HomeView({ onNavigate }: { onNavigate: (key: string) => void }) 
 // LANDING PAGE (standalone, outside dashboard shell)
 // ════════════════════════════════════════════════════════════════════════════
 function LoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: (email: string, password: string) => Promise<void> }) {
-  const [email, setEmail] = useState('')
-  const [pass, setPass] = useState('')
+  const [email, setEmail] = useState('pak-ahmad@example.com')
+  const [pass, setPass] = useState('password_tes_123')
   const [loading, setLoading] = useState(false)
-  const submit = async () => {
-    if (!email.trim()) return
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const submitWithCreds = async (eEmail: string, ePass: string) => {
     setLoading(true)
-    try { await onLogin(email, pass) } finally { setLoading(false) }
+    setErrorMsg(null)
+    try {
+      await onLogin(eEmail, ePass)
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Login gagal. Periksa email/password.')
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const submit = () => submitWithCreds(email, pass)
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:500 }} onClick={onClose}>
-      <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:20, padding:36, width:400, maxWidth:'92vw', boxShadow:'0 32px 80px rgba(0,0,0,0.6)' }} onClick={e=>e.stopPropagation()}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
-          <div>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-              <img src={logoImg} alt="Yugma" style={{ width:24, height:24, objectFit:'contain' }} />
-              <span style={{ fontWeight:800, fontSize:18, color:'var(--c-text)' }}>Yugma</span>
+      <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:20, padding:32, width:420, maxWidth:'92vw', boxShadow:'0 32px 80px rgba(0,0,0,0.6)' }} onClick={e=>e.stopPropagation()}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <img src={logoImg} alt="Yugma Logo" style={{ width:28, height:28, objectFit:'contain' }} />
+            <div>
+              <div style={{ fontWeight:800, fontSize:18, color:'var(--c-text)', lineHeight:1.2 }}>Yugma IoT</div>
+              <div style={{ fontSize:11, color:'var(--c-muted)' }}>Sign in to your IoT workspace</div>
             </div>
-            <div style={{ fontSize:12, color:'var(--c-muted)' }}>Sign in to your IoT workspace</div>
           </div>
           <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--c-muted)', cursor:'pointer', padding:4 }}>
             <Icon name="close" size={16} />
           </button>
         </div>
-        <div style={{ marginBottom:14 }}>
+
+        {errorMsg && (
+          <div style={{ marginBottom:14, padding:'10px 14px', borderRadius:8, background:`${C.coral}18`, border:`1px solid ${C.coral}44`, fontSize:12, color: C.coral }}>
+            ⚠️ {errorMsg}
+          </div>
+        )}
+
+        <div style={{ marginBottom:12 }}>
           <div style={{ fontSize:11, color:'var(--c-muted)', fontWeight:600, marginBottom:6 }}>Email</div>
           <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="you@example.com"
             style={{ width:'100%', background:'var(--c-input-bg)', border:'1px solid var(--c-border)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--c-text)', outline:'none', fontFamily:'Outfit,sans-serif', boxSizing:'border-box' }}
             onFocus={e=>e.currentTarget.style.borderColor=C.coral} onBlur={e=>e.currentTarget.style.borderColor='var(--c-border)'} />
         </div>
-        <div style={{ marginBottom:24 }}>
+        <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:11, color:'var(--c-muted)', fontWeight:600, marginBottom:6 }}>Password</div>
           <input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="••••••••"
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{ width:'100%', background:'var(--c-input-bg)', border:'1px solid var(--c-border)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--c-text)', outline:'none', fontFamily:'Outfit,sans-serif', boxSizing:'border-box' }}
             onFocus={e=>e.currentTarget.style.borderColor=C.coral} onBlur={e=>e.currentTarget.style.borderColor='var(--c-border)'} />
         </div>
-        <button onClick={submit} disabled={loading} style={{ width:'100%', padding:'12px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${C.coral},${C.purple})`, color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'Outfit,sans-serif', opacity: loading ? 0.7 : 1, transition:'opacity .15s' }}>
+
+        <button onClick={submit} disabled={loading} style={{ width:'100%', padding:'12px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${C.coral},${C.purple})`, color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'Outfit,sans-serif', opacity: loading ? 0.7 : 1, transition:'opacity .15s', marginBottom:16 }}>
           {loading ? 'Signing in…' : 'Sign In →'}
         </button>
-        <div style={{ marginTop:16, textAlign:'center', fontSize:11, color:'var(--c-muted)' }}>
-          Don't have an account? <span style={{ color: C.coral, cursor:'pointer', fontWeight:600 }}>Get started free →</span>
+
+        {/* Quick Demo Logins */}
+        <div style={{ borderTop:'1px solid var(--c-border)', paddingTop:14, marginTop:10 }}>
+          <div style={{ fontSize:10, color:'var(--c-muted)', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:8, textAlign:'center' }}>
+            ⚡ Quick Demo Accounts
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+            <button onClick={() => { setEmail('pak-ahmad@example.com'); setPass('password_tes_123'); submitWithCreds('pak-ahmad@example.com', 'password_tes_123') }} style={{ padding:'8px 10px', borderRadius:8, border:'1px solid var(--c-border)', background:'var(--c-surface2)', color:'var(--c-text)', fontSize:11, fontWeight:600, cursor:'pointer', textAlign:'left', fontFamily:'Outfit,sans-serif' }}>
+              👤 Pak Ahmad <span style={{ fontSize:9, color: C.coral }}>(Free)</span>
+            </button>
+            <button onClick={() => { setEmail('bu-siti@example.com'); setPass('password_tes_123'); submitWithCreds('bu-siti@example.com', 'password_tes_123') }} style={{ padding:'8px 10px', borderRadius:8, border:'1px solid var(--c-border)', background:'var(--c-surface2)', color:'var(--c-text)', fontSize:11, fontWeight:600, cursor:'pointer', textAlign:'left', fontFamily:'Outfit,sans-serif' }}>
+              👤 Bu Siti <span style={{ fontSize:9, color: C.purple }}>(Paid)</span>
+            </button>
+          </div>
+          <button onClick={() => submitWithCreds('admin@telecominfra.id', 'demo')} style={{ width:'100%', marginTop:8, padding:'8px 10px', borderRadius:8, border:`1px solid ${C.coral}33`, background:`${C.coral}15`, color: C.coral, fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'Outfit,sans-serif' }}>
+            🚀 Instant Demo Console Mode
+          </button>
         </div>
       </div>
     </div>
