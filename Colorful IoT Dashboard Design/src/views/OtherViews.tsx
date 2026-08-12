@@ -1021,7 +1021,7 @@ export function LandingPage({ isDark, onToggleTheme, onEnter }: { isDark: boolea
       {/* Navbar */}
       <nav style={{ position:'sticky', top:0, zIndex:100, display:'flex', alignItems:'center', padding:'0 40px', height:64, background:'var(--c-surface)', borderBottom:'1px solid var(--c-border)', backdropFilter:'blur(12px)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <img src={logoImg} alt="Yugma" style={{ width:32, height:32, objectFit:'contain' }} />
+          <img src={logoImg} onError={(e)=>{ e.currentTarget.src = '/logo.png' }} alt="Yugma" style={{ width:32, height:32, objectFit:'contain' }} />
           <span style={{ fontWeight:800, fontSize:18, color:'var(--c-text)' }}>Yugma</span>
           <span style={{ fontSize:10, color: C.coral, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', background:`${C.coral}18`, padding:'2px 8px', borderRadius:8, marginLeft:4 }}>IoT</span>
         </div>

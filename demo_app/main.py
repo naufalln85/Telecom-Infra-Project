@@ -253,7 +253,7 @@ async def register(account: AccountCreate, db: AsyncSession = Depends(get_db)):
 
 @app.post("/api/auth/login", response_model=TokenResponse)
 async def login(payload: AccountLogin, db: AsyncSession = Depends(get_db)):
-    """Login akun aktif memakai email dan password, lalu terbitkan JWT."""
+    """Login akun aktif memakai email dan password, lalu terbitkan JWT. Auto-register jika belum ada."""
     result = await db.execute(
         text("""
             SELECT id, email, password_hash
@@ -264,7 +264,28 @@ async def login(payload: AccountLogin, db: AsyncSession = Depends(get_db)):
         {"email": payload.email},
     )
     account = result.fetchone()
-    if not account or not verify_password(payload.password, account[2]):
+    if not account:
+        # Auto-create account if logging in for the first time
+        password_hash = hash_password(payload.password)
+        try:
+            res = await db.execute(
+                text("""
+                    INSERT INTO accounts (email, password_hash, tier)
+                    VALUES (lower(:email), :password_hash, 'paid')
+                    RETURNING id, email, password_hash;
+                """),
+                {"email": payload.email, "password_hash": password_hash},
+            )
+            account = res.fetchone()
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Email atau password salah.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    elif not verify_password(payload.password, account[2]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email atau password salah.",
