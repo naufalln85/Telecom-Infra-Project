@@ -1,0 +1,10 @@
+{
+  "description": "Visualize and control IoT devices through a vibrant, user-friendly dashboard designed to simplify smart device management for developers and users.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
