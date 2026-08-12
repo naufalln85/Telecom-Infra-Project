@@ -50,7 +50,25 @@ redis_data/
 .coverage
 htmlcov/
 
-# Temporary Figma design exports
-Colorful IoT Dashboard Design/
-DB Relation/Colorful IoT Dashboard Design/
+# Node modules (semua subfolder, termasuk frontend)
+node_modules/
+**/node_modules/
 
+# Build artifacts (Vite/React build output)
+**/dist/
+
+# Frontend baru (Colorful IoT Dashboard Design) — node_modules & dist SUDAH
+# di-exclude oleh rules di atas. Source code-nya WAJIB di-commit ke repo.
+# Folder: DB Relation/Colorful IoT Dashboard Design/ → tracked (production frontend)
+# Folder: Colorful IoT Dashboard Design/ (root) → tracked (source asli Figma export)
+
+# AI SERVING runtime artifacts
+AI SERVING/__pycache__/
+AI SERVING/sandbox_sock/
+AI SERVING/temp_uploads/
+AI SERVING/uploads/
+AI SERVING/venv/
+AI SERVING/data/
+
+# pnpm lockfile di root (jika ada)
+pnpm-lock.yaml

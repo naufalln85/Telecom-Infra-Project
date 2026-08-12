@@ -1,0 +1,86 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+@import 'tailwindcss';
+
+/* ── Accent colors (overrideable by Settings → Appearance) ─────────────── */
+:root {
+  --c-accent-a:   #C65C55;
+  --c-accent-b:   #931783;
+  --c-accent-c:   #AD3A6C;
+  --c-amber:      #D4913A;
+  --c-teal:       #2AA6A0;
+  --c-green:      #3DAA6A;
+
+  /* Density spacing (overrideable) */
+  --density-pad:  16px;
+  --density-gap:  14px;
+  --density-row:  180px;
+}
+
+/* ── Dark theme (default) ──────────────────────────────────────────────── */
+:root, [data-theme="dark"] {
+  --c-bg:       #1A1414;
+  --c-surface:  #2E2424;
+  --c-surface2: #382A2A;
+  --c-surface3: #3F2E2E;
+  --c-text:     #EDEDED;
+  --c-muted:    #9A8A8A;
+  --c-border:   rgba(237,237,237,0.08);
+  --c-overlay:  rgba(237,237,237,0.05);
+  --c-btn-ghost:rgba(237,237,237,0.07);
+  --c-input-bg: #382A2A;
+  --c-code-bg:  #0d0a0a;
+  --c-code-txt: #A8D8A8;
+  --c-scrollbar:rgba(237,237,237,0.15);
+  --c-shadow:   rgba(0,0,0,0.45);
+}
+
+/* ── Light theme ───────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --c-bg:       #F0EAEA;
+  --c-surface:  #FFFFFF;
+  --c-surface2: #F8F3F3;
+  --c-surface3: #EDE7E7;
+  --c-text:     #241D1D;
+  --c-muted:    #7A6A6A;
+  --c-border:   rgba(36,29,29,0.1);
+  --c-overlay:  rgba(36,29,29,0.04);
+  --c-btn-ghost:rgba(36,29,29,0.06);
+  --c-input-bg: #F0EAEA;
+  --c-code-bg:  #F5F5F5;
+  --c-code-txt: #2E6B2E;
+  --c-scrollbar:rgba(36,29,29,0.15);
+  --c-shadow:   rgba(0,0,0,0.12);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+  margin: 0;
+  transition: background .25s, color .25s;
+}
+
+/* ── Density: compact overrides ────────────────────────────────────────── */
+[data-density="compact"] { --density-pad: 10px; --density-gap: 8px; --density-row: 140px; }
+
+/* ── Accent: applied via CSS vars on root by Settings ──────────────────── */
+.btn-primary {
+  background: linear-gradient(135deg, var(--c-accent-a), var(--c-accent-b)) !important;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--c-accent-a) 40%, transparent) !important;
+}
+.nav-active-indicator { border-left-color: var(--c-accent-a) !important; color: var(--c-accent-a) !important; }
+.accent-border  { border-color: var(--c-accent-a) !important; }
+.accent-text    { color: var(--c-accent-a) !important; }
+.accent-bg      { background: color-mix(in srgb, var(--c-accent-a) 15%, transparent) !important; }
+
+/* ── Animation toggle ──────────────────────────────────────────────────── */
+[data-no-anim] * { transition: none !important; animation: none !important; }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-scrollbar); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-muted); }
+
+select option { background: var(--c-surface2); color: var(--c-text); }

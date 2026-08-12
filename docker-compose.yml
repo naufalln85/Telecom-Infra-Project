@@ -1,6 +1,7 @@
 # =============================================================================
 # Docker Compose — IoT Platform Multi-Tenant (Full Stack Production Stack)
 # Stack: PostgreSQL 15 + TimescaleDB HA | Redis 7 | FastAPI Backend | AI Serving | React Frontend (Nginx)
+# Frontend: Colorful IoT Dashboard Design (Figma → React + TypeScript + Vite)
 # =============================================================================
 
 name: iot-platform-tip
@@ -77,6 +78,7 @@ services:
 
   # ---------------------------------------------------------------------------
   # BACKEND API: FastAPI (demo_app)
+  # Entrypoint otomatis: Alembic migrate → Seed data → Start server
   # ---------------------------------------------------------------------------
   backend:
     build:
@@ -93,6 +95,7 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip_admin}:${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}@db:5432/${POSTGRES_DB:-iot_platform_tip}
+      DATABASE_URL_SYNC: postgresql+psycopg2://${POSTGRES_USER:-tip_admin}:${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}@db:5432/${POSTGRES_DB:-iot_platform_tip}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-x7TrLTJmZaRkPZpWzS3BD4Xl}
@@ -130,11 +133,13 @@ services:
       - iot_platform_net
 
   # ---------------------------------------------------------------------------
-  # FRONTEND UI: React + Vite + Nginx (Frontend-Iot-dashboard-main)
+  # FRONTEND UI: Colorful IoT Dashboard Design
+  # React + TypeScript + Vite + TailwindCSS → served via Nginx
+  # Proxy /api/ → backend:8000 | /gateway/ → iot-gateway:3000
   # ---------------------------------------------------------------------------
   frontend:
     build:
-      context: ./Frontend-Iot-dashboard-main
+      context: ./DB Relation/Colorful IoT Dashboard Design
       dockerfile: Dockerfile
     container_name: tip_frontend
     restart: unless-stopped

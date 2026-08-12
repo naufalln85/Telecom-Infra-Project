@@ -2,25 +2,33 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (termasuk psycopg2 untuk Alembic sync)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements from root directory
+# Copy requirements dari root directory
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend application source
+# Copy seluruh project (backend + alembic + DB Relation schema)
 COPY demo_app/ /app/demo_app/
+COPY db/ /app/db/
+COPY alembic.ini /app/alembic.ini
 COPY .env /app/.env
+
+# Copy entrypoint script dan beri execute permission
+COPY demo_app/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 8000
 
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
-CMD ["uvicorn", "demo_app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Jalankan entrypoint: migrate → seed → start server
+CMD ["/app/entrypoint.sh"]
