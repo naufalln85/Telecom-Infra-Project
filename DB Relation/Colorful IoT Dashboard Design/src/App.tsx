@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { C } from '@/lib/theme'
 import { Icon, Btn, Pill, StatusDot } from '@/components/Shared'
-const logoImg = '/logo.png'
+import logoImg from '@/imports/Untitled__36_.png'
 import { AppearanceProvider, useAppearance } from '@/lib/appearance'
 import { authApi, projectsApi, type Account, type Project } from '@/lib/api'
 import DashboardView from '@/views/Dashboard'
 import { DevicesView as WorkspaceDevicesView, MembersView } from '@/views/WorkspaceViews'
 import { Empty } from '@/views/Dashboard'
 import SettingsView from '@/views/Settings'
+import { AimlView, AlertView, AnalyticsView, GatewayView, HomeView, SensorManagementView } from '@/views/WorkspaceOverview'
 import {
   LandingPage,
 } from '@/views/OtherViews'
@@ -180,7 +181,7 @@ function AppShell() {
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside style={{ width: sidebar ? 216 : 60, flexShrink:0, transition:'width .22s', background: C.bg, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ padding:'14px 14px', display:'flex', alignItems:'center', gap:10, borderBottom:`1px solid ${C.border}` }}>
-          <img src={logoImg} onError={(e)=>{ e.currentTarget.src = '/logo.png' }} alt="Yugma" style={{ width:32, height:32, objectFit:'contain', flexShrink:0 }} />
+          <img src={logoImg} alt="Yugma" style={{ width:32, height:32, objectFit:'contain', flexShrink:0 }} />
           {sidebar && <div style={{ flex:1, minWidth:0 }}><div style={{ fontWeight:800, fontSize:14, color: C.light }}>Yugma</div><div style={{ fontSize:9, color: C.muted, marginTop:1 }}>IoT Platform</div></div>}
           <button onClick={()=>setSidebar(p=>!p)} style={{ background:'none', border:'none', color: C.muted, cursor:'pointer', padding:2, flexShrink:0, transition:'color .15s' }}
             onMouseEnter={e=>e.currentTarget.style.color=C.light} onMouseLeave={e=>e.currentTarget.style.color=C.muted}>
@@ -309,15 +310,15 @@ function AppShell() {
         </header>
 
         <main style={{ flex:1, overflowY:'auto', padding:22 }}>
-          {nav === 'home'        && <Empty title="Selamat datang di Yugma" text="Buat project, daftarkan perangkat, lalu susun dashboard sesuai kebutuhan Anda." />}
+          {nav === 'home'        && <HomeView project={activeProject} onNavigate={key => setNav(key)} />}
           {nav === 'dashboard'   && <DashboardView project={activeProject} />}
-          {nav === 'sensors'     && <WorkspaceDevicesView project={activeProject} />}
+          {nav === 'sensors'     && <SensorManagementView project={activeProject} onNavigate={key => setNav(key)} />}
           {nav === 'devices'     && <WorkspaceDevicesView project={activeProject} />}
-          {nav === 'automations' && <Empty title="Belum ada automation" text="Automation tersedia setelah perangkat dan channel nyata ditambahkan." />}
+          {nav === 'automations' && <AlertView project={activeProject} onNavigate={key => setNav(key)} />}
           {nav === 'users'       && <MembersView project={activeProject} accountId={account?.id} />}
-          {nav === 'analytics'   && <Empty title="Belum ada data analytics" text="Hubungkan perangkat dan kirim telemetry untuk melihat analytics project ini." />}
-          {nav === 'gateway'     && <Empty title="Gateway siap dihubungkan" text="Buat perangkat untuk mendapatkan API key, lalu kirim telemetry melalui gateway." />}
-          {nav === 'aiml'        && <Empty title="Belum ada model AI" text="Model AI dapat dipakai setelah project memiliki data telemetry nyata." />}
+          {nav === 'analytics'   && <AnalyticsView project={activeProject} onNavigate={key => setNav(key)} />}
+          {nav === 'gateway'     && <GatewayView project={activeProject} onNavigate={key => setNav(key)} />}
+          {nav === 'aiml'        && <AimlView />}
           {nav === 'settings'    && <SettingsView />}
           {nav === 'admin'       && <Empty title="Panel administrasi" text="Akses administrasi global tidak diaktifkan pada workspace pengguna." />}
         </main>
