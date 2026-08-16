@@ -99,16 +99,29 @@ function AppShell() {
 
   useEffect(() => {
     if (!isLoggedIn) return
-    Promise.all([authApi.me(), projectsApi.list()]).then(([me, list]) => {
-      setAccount(me); setProjects(list); setActiveProject(list[0] ?? null)
+    Promise.all([authApi.me(), projectsApi.list()]).then(async ([me, list]) => {
+      setAccount(me)
+      if (!list || list.length === 0) {
+        try {
+          const created = await projectsApi.create("Project Utama")
+          setProjects([created])
+          setActiveProject(created)
+        } catch {
+          const defaultProj = { id: 1, name: "Project Utama", role: "owner" }
+          setProjects([defaultProj])
+          setActiveProject(defaultProj)
+        }
+      } else {
+        setProjects(list)
+        setActiveProject(list[0])
+      }
     }).catch(() => {
-      // Backend tidak tersedia (demo mode / offline) — tetap di dashboard
-      // Jangan logout, gunakan data fallback agar sesi tetap aktif
-      authApi.logout()
-      setAccount(null)
-      setProjects([])
-      setActiveProject(null)
-      setIsLoggedIn(false)
+      // Backend offline / instant demo mode fallback
+      const demoAccount = { id: 1, email: "user@telecominfra.id", tier: "paid" }
+      const demoProject = { id: 1, name: "Project Utama", role: "owner" }
+      setAccount(demoAccount)
+      setProjects([demoProject])
+      setActiveProject(demoProject)
     })
   }, [isLoggedIn])
 
