@@ -20,20 +20,15 @@ const MQTT_PORT = parseInt(process.env.GATEWAY_MQTT_PORT || '1884', 10);
 const COAP_PORT = parseInt(process.env.GATEWAY_COAP_PORT || '5683', 10);
 
 // URL backend tujuan (FastAPI Modul A)
-// Di Docker Compose: http://backend:8000/api/v1/save-data
-// Di lokal dev:      http://localhost:8000/api/v1/save-data
-const BACKEND_URL = process.env.BACKEND_URL || 'http://backend:8000/api/v1/save-data';
+// Di Docker Compose: http://backend:8000/api/v2/telemetry
+// Di lokal dev:      http://localhost:8000/api/v2/telemetry
+const BACKEND_URL = process.env.BACKEND_URL || 'http://backend:8000/api/v2/telemetry';
 
 // JSON Schema telemetri — validasi data masuk dari device IoT
 const telemetrySchema = {
     type: "object",
-    properties: {
-        device_id: { type: "string" },
-        temperature: { type: "number" },
-        humidity: { type: "number" }
-    },
-    required: ["device_id", "temperature", "humidity"],
-    additionalProperties: true  // Allow extra fields like timestamp, etc.
+    minProperties: 1,
+    additionalProperties: true  // Payload nyata boleh memiliki channel apa pun.
 };
 
 const validate = ajv.compile(telemetrySchema);

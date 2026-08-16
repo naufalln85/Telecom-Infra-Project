@@ -7,7 +7,7 @@
  *
  * Endpoint: POST /api/v1/telemetry
  * Header:   x-api-key: <API Key Device>
- * Body:     { "device_id": "string", "temperature": number, "humidity": number }
+ * Body:     { "temperature": number } (atau channel telemetry valid lainnya)
  *
  * Health:   GET /health — untuk Docker healthcheck
  * ============================================================================
@@ -48,11 +48,7 @@ function startHttpServer() {
             return res.status(400).json({
                 error: 'Invalid JSON Schema',
                 details: validate.errors,
-                expected: {
-                    device_id: "string (wajib)",
-                    temperature: "number (wajib)",
-                    humidity: "number (wajib)"
-                }
+                expected: "Objek JSON telemetry dengan minimal satu channel"
             });
         }
 

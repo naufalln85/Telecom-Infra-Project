@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import { C } from '@/lib/theme'
 import { Icon, Btn, Pill, StatusDot } from '@/components/Shared'
-import logoImg from '@/imports/Untitled__36_.png'
+const logoImg = '/logo.png'
 import { AppearanceProvider, useAppearance } from '@/lib/appearance'
 import { authApi, projectsApi, type Account, type Project } from '@/lib/api'
 import DashboardView from '@/views/Dashboard'
+import { DevicesView as WorkspaceDevicesView, MembersView } from '@/views/WorkspaceViews'
+import { Empty } from '@/views/Dashboard'
 import SettingsView from '@/views/Settings'
 import {
-  SensorsView, DevicesView, AutomationsView, UsersView,
-  AnalyticsView, GatewayView, AIMLView, DeveloperView, HomeView, LandingPage,
+  LandingPage,
 } from '@/views/OtherViews'
 
 type NavKey = 'home'|'dashboard'|'sensors'|'devices'|'automations'|'users'|'gateway'|'analytics'|'aiml'|'settings'|'admin'
@@ -103,8 +104,11 @@ function AppShell() {
     }).catch(() => {
       // Backend tidak tersedia (demo mode / offline) — tetap di dashboard
       // Jangan logout, gunakan data fallback agar sesi tetap aktif
-      setAccount({ id: 0, email: 'demo@telecominfra.id', tier: 'paid', created_at: new Date().toISOString() })
+      authApi.logout()
+      setAccount(null)
       setProjects([])
+      setActiveProject(null)
+      setIsLoggedIn(false)
     })
   }, [isLoggedIn])
 
@@ -115,9 +119,9 @@ function AppShell() {
         <LandingPage
           isDark={isDark}
           onToggleTheme={() => setIsDark(p => !p)}
-          onEnter={() => setIsLoggedIn(true)}
-          onLogin={async (email, password) => { await authApi.login(email, password) }}
-          onRegister={async (email, password) => { await authApi.register(email, password) }}
+          onEnter={() => {}}
+          onLogin={async (email, password) => { await authApi.login(email, password); setIsLoggedIn(true) }}
+          onRegister={async (email, password) => { await authApi.register(email, password); setIsLoggedIn(true) }}
         />
       </div>
     )
@@ -257,17 +261,17 @@ function AppShell() {
         </header>
 
         <main style={{ flex:1, overflowY:'auto', padding:22 }}>
-          {nav === 'home'        && <HomeView onNavigate={(k) => setNav(k as NavKey)} />}
-          {nav === 'dashboard'   && <DashboardView />}
-          {nav === 'sensors'     && <SensorsView />}
-          {nav === 'devices'     && <DevicesView />}
-          {nav === 'automations' && <AutomationsView />}
-          {nav === 'users'       && <UsersView />}
-          {nav === 'analytics'   && <AnalyticsView />}
-          {nav === 'gateway'     && <GatewayView />}
-          {nav === 'aiml'        && <AIMLView />}
+          {nav === 'home'        && <Empty title="Selamat datang di Yugma" text="Buat project, daftarkan perangkat, lalu susun dashboard sesuai kebutuhan Anda." />}
+          {nav === 'dashboard'   && <DashboardView project={activeProject} />}
+          {nav === 'sensors'     && <WorkspaceDevicesView project={activeProject} />}
+          {nav === 'devices'     && <WorkspaceDevicesView project={activeProject} />}
+          {nav === 'automations' && <Empty title="Belum ada automation" text="Automation tersedia setelah perangkat dan channel nyata ditambahkan." />}
+          {nav === 'users'       && <MembersView project={activeProject} accountId={account?.id} />}
+          {nav === 'analytics'   && <Empty title="Belum ada data analytics" text="Hubungkan perangkat dan kirim telemetry untuk melihat analytics project ini." />}
+          {nav === 'gateway'     && <Empty title="Gateway siap dihubungkan" text="Buat perangkat untuk mendapatkan API key, lalu kirim telemetry melalui gateway." />}
+          {nav === 'aiml'        && <Empty title="Belum ada model AI" text="Model AI dapat dipakai setelah project memiliki data telemetry nyata." />}
           {nav === 'settings'    && <SettingsView />}
-          {nav === 'admin'       && <DeveloperView />}
+          {nav === 'admin'       && <Empty title="Panel administrasi" text="Akses administrasi global tidak diaktifkan pada workspace pengguna." />}
         </main>
       </div>
     </div>

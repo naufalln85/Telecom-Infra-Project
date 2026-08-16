@@ -106,6 +106,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/api/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s
     networks:
       - iot_platform_net
 
@@ -146,8 +152,10 @@ services:
     ports:
       - "5173:80"
     depends_on:
-      - backend
-      - iot-gateway
+      backend:
+        condition: service_healthy
+      iot-gateway:
+        condition: service_started
     networks:
       - iot_platform_net
 
@@ -167,7 +175,7 @@ services:
       - "${GATEWAY_COAP_PORT:-5683}:5683/udp"   # CoAP UDP Server
 
     environment:
-      BACKEND_URL: http://backend:8000/api/v1/save-data
+      BACKEND_URL: http://backend:8000/api/v2/telemetry
       GATEWAY_HTTP_PORT: 3000
       GATEWAY_MQTT_PORT: 1884
       GATEWAY_COAP_PORT: 5683
