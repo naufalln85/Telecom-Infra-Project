@@ -952,22 +952,20 @@ export function HomeView({ onNavigate }: { onNavigate: (key: string) => void }) 
 // ════════════════════════════════════════════════════════════════════════════
 // LANDING PAGE (standalone, outside dashboard shell)
 // ════════════════════════════════════════════════════════════════════════════
-function LoginModal({ onClose, onLogin, onRegister }: { onClose: () => void; onLogin?: (email: string, password: string) => Promise<void>; onRegister?: (email: string, password: string) => Promise<void> }) {
+function LoginModal({ onClose, onLogin, onRegister, onEnter }: { onClose: () => void; onLogin?: (email: string, password: string) => Promise<void>; onRegister?: (email: string, password: string) => Promise<void>; onEnter?: () => void }) {
   const [isRegister, setIsRegister] = useState(false)
   const [email, setEmail] = useState('user@telecominfra.id')
   const [pass, setPass] = useState('password123')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  // Instant Demo: langsung masuk tanpa validasi backend
   const handleInstantDemo = () => {
     setLoading(true)
-    try {
-      localStorage.setItem('tip_jwt_token', 'demo_instant_session_token')
-    } catch {}
     setTimeout(() => {
       setLoading(false)
       onClose()
-      window.location.reload()
+      if (onEnter) onEnter()  // langsung masuk ke dashboard tanpa reload
     }, 300)
   }
 
@@ -984,14 +982,11 @@ function LoginModal({ onClose, onLogin, onRegister }: { onClose: () => void; onL
       } else if (onLogin) {
         await onLogin(email, pass)
       }
+      // Sukses login/register → langsung masuk
       onClose()
+      if (onEnter) onEnter()
     } catch (err: any) {
-      console.warn('API Auth call fallback:', err)
-      try {
-        localStorage.setItem('tip_jwt_token', 'demo_fallback_token')
-      } catch {}
-      onClose()
-      window.location.reload()
+      setErrorMsg((err as any)?.message || 'Login gagal. Periksa email/password Anda.')
     } finally {
       setLoading(false)
     }
@@ -1076,9 +1071,16 @@ export function LandingPage({ isDark, onToggleTheme, onEnter }: { isDark: boolea
     { label:'Blog',     id:'section-blog' },
   ]
 
+  const handleEnter = () => { setShowLogin(false); onEnter() }
+
   return (
     <div style={{ minHeight:'100vh', background:'var(--c-bg)', color:'var(--c-text)', fontFamily:'Outfit,sans-serif', overflowX:'hidden' }}>
-      {showLogin && <LoginModal onClose={()=>setShowLogin(false)} onLogin={()=>{ setShowLogin(false); onEnter() }} />}
+      {showLogin && <LoginModal
+        onClose={() => setShowLogin(false)}
+        onLogin={async (email, pass) => { /* backend offline di demo mode — langsung masuk */ }}
+        onRegister={async (email, pass) => { /* registrasi tanpa backend */ }}
+        onEnter={handleEnter}
+      />}
       {/* Navbar */}
       <nav style={{ position:'sticky', top:0, zIndex:100, display:'flex', alignItems:'center', padding:'0 40px', height:64, background:'var(--c-surface)', borderBottom:'1px solid var(--c-border)', backdropFilter:'blur(12px)' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>

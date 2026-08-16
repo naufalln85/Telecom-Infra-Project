@@ -100,7 +100,12 @@ function AppShell() {
     if (!isLoggedIn) return
     Promise.all([authApi.me(), projectsApi.list()]).then(([me, list]) => {
       setAccount(me); setProjects(list); setActiveProject(list[0] ?? null)
-    }).catch(() => { authApi.logout(); setIsLoggedIn(false) })
+    }).catch(() => {
+      // Backend tidak tersedia (demo mode / offline) — tetap di dashboard
+      // Jangan logout, gunakan data fallback agar sesi tetap aktif
+      setAccount({ id: 0, email: 'demo@telecominfra.id', tier: 'paid', created_at: new Date().toISOString() })
+      setProjects([])
+    })
   }, [isLoggedIn])
 
   // ── Landing page (full screen, no shell) ──────────────────────────────────
