@@ -82,6 +82,9 @@ function AppShell() {
   const [account, setAccount] = useState<Account | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
   const [activeProject, setActiveProject] = useState<Project | null>(null)
+  const [workspaceLoading, setWorkspaceLoading] = useState(authApi.hasSession())
+  const [workspaceError, setWorkspaceError] = useState("")
+  const [reloadWorkspace, setReloadWorkspace] = useState(0)
   const [nav, setNav] = useState<NavKey>('home')
   const [sidebar, setSidebar] = useState(!settings.sidebarCollapsed)
   const [showProject, setShowProject] = useState(false)
@@ -99,31 +102,40 @@ function AppShell() {
 
   useEffect(() => {
     if (!isLoggedIn) return
+    let cancelled = false
+    setWorkspaceLoading(true)
+    setWorkspaceError("")
+
     Promise.all([authApi.me(), projectsApi.list()]).then(async ([me, list]) => {
+      if (cancelled) return
       setAccount(me)
-      if (!list || list.length === 0) {
-        try {
-          const created = await projectsApi.create("Project Utama")
-          setProjects([created])
-          setActiveProject(created)
-        } catch {
-          const defaultProj = { id: 1, name: "Project Utama", role: "owner" }
-          setProjects([defaultProj])
-          setActiveProject(defaultProj)
-        }
+      if (list.length === 0) {
+        const created = await projectsApi.create("Project Utama")
+        if (cancelled) return
+        setProjects([created])
+        setActiveProject(created)
       } else {
         setProjects(list)
         setActiveProject(list[0])
       }
-    }).catch(() => {
-      // Backend offline / instant demo mode fallback
-      const demoAccount = { id: 1, email: "user@telecominfra.id", tier: "paid" }
-      const demoProject = { id: 1, name: "Project Utama", role: "owner" }
-      setAccount(demoAccount)
-      setProjects([demoProject])
-      setActiveProject(demoProject)
+    }).catch((error) => {
+      if (cancelled) return
+      // request() removes an expired/invalid token on 401. Return to the
+      // landing page instead of rendering a fake workspace for that session.
+      if (!authApi.hasSession()) {
+        setAccount(null)
+        setProjects([])
+        setActiveProject(null)
+        setIsLoggedIn(false)
+        return
+      }
+      setWorkspaceError(error instanceof Error ? error.message : "Tidak dapat memuat workspace.")
+    }).finally(() => {
+      if (!cancelled) setWorkspaceLoading(false)
     })
-  }, [isLoggedIn])
+
+    return () => { cancelled = true }
+  }, [isLoggedIn, reloadWorkspace])
 
   // ── Landing page (full screen, no shell) ──────────────────────────────────
   if (!isLoggedIn) {
@@ -140,10 +152,30 @@ function AppShell() {
     )
   }
 
+  if (workspaceLoading) {
+    return (
+      <div data-theme={isDark ? 'dark' : 'light'} style={{ minHeight:'100vh', display:'grid', placeItems:'center', background:C.bg, color:C.muted, fontFamily:'Outfit,sans-serif' }}>
+        Memuat workspace Yugma...
+      </div>
+    )
+  }
+
+  if (workspaceError) {
+    return (
+      <div data-theme={isDark ? 'dark' : 'light'} style={{ minHeight:'100vh', display:'grid', placeItems:'center', background:C.bg, color:C.light, fontFamily:'Outfit,sans-serif', padding:24 }}>
+        <div style={{ maxWidth:420, textAlign:'center', background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:28 }}>
+          <h2 style={{ margin:'0 0 10px' }}>Workspace belum dapat dimuat</h2>
+          <p style={{ color:C.muted, fontSize:13, lineHeight:1.6 }}>{workspaceError}</p>
+          <Btn variant="primary" onClick={()=>setReloadWorkspace(value=>value+1)}>Coba lagi</Btn>
+        </div>
+      </div>
+    )
+  }
+
   // ── Dashboard shell ───────────────────────────────────────────────────────
   return (
     <div data-theme={isDark ? 'dark' : 'light'} style={{ display:'flex', height:'100vh', background: C.bg, overflow:'hidden', fontFamily:'Outfit,sans-serif', color: C.light }}>
-      {showProject && <ProjectModal projects={projects} active={activeProject} onSelect={p=>{setActiveProject(p);setShowProject(false)}} onCreate={async name=>{const p=await projectsApi.create(name);setProjects(x=>[...x,p]);setActiveProject(p)}} onDelete={async id=>{await projectsApi.remove(id);setProjects(x=>x.filter(p=>p.id!==id));setActiveProject(p=>p?.id===id?null:p)}} onClose={()=>setShowProject(false)} />}
+      {showProject && <ProjectModal projects={projects} active={activeProject} onSelect={p=>{setActiveProject(p);setShowProject(false)}} onCreate={async name=>{const p=await projectsApi.create(name);setProjects(x=>[...x,p]);setActiveProject(p)}} onDelete={async id=>{await projectsApi.remove(id); const remaining=projects.filter(p=>p.id!==id); setProjects(remaining); setActiveProject(active=>active?.id===id ? (remaining[0] ?? null) : active)}} onClose={()=>setShowProject(false)} />}
 
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside style={{ width: sidebar ? 216 : 60, flexShrink:0, transition:'width .22s', background: C.bg, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
@@ -262,6 +294,9 @@ function AppShell() {
               onMouseLeave={e=>{ e.currentTarget.style.color=C.muted }}>
               <Icon name="bell" size={14} />
               {notifications > 0 && <span style={{ position:'absolute', top:-2, right:-2, width:14, height:14, borderRadius:'50%', background: C.coral, display:'flex', alignItems:'center', justifyContent:'center', fontSize:8, fontWeight:800, color:'#fff' }}>{notifications}</span>}
+            </button>
+            <button onClick={()=>{ authApi.logout(); setIsLoggedIn(false); setActiveProject(null); setProjects([]); setAccount(null) }} style={{ background:'transparent', border:`1px solid ${C.border}`, borderRadius:8, color:C.muted, cursor:'pointer', fontSize:11, padding:'7px 10px', fontFamily:'Outfit,sans-serif' }}>
+              Keluar
             </button>
             <div style={{ display:'flex', alignItems:'center', gap:10, paddingLeft:10, borderLeft:`1px solid ${C.border}`, cursor:'pointer' }} onClick={()=>setNav('settings')}>
               <div style={{ width:34, height:34, borderRadius:'50%', background:`linear-gradient(135deg,${C.coral},${C.purple})`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:14, color:'#fff', flexShrink:0 }}>A</div>
