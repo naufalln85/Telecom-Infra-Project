@@ -112,6 +112,7 @@ function AppShell() {
           onToggleTheme={() => setIsDark(p => !p)}
           onEnter={() => setIsLoggedIn(true)}
           onLogin={async (email, password) => { await authApi.login(email, password) }}
+          onRegister={async (email, password) => { await authApi.register(email, password) }}
         />
       </div>
     )

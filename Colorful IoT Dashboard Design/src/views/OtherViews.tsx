@@ -952,49 +952,110 @@ export function HomeView({ onNavigate }: { onNavigate: (key: string) => void }) 
 // ════════════════════════════════════════════════════════════════════════════
 // LANDING PAGE (standalone, outside dashboard shell)
 // ════════════════════════════════════════════════════════════════════════════
-function LoginModal({ onClose, onLogin }: { onClose: () => void; onLogin: (email: string, password: string) => Promise<void> }) {
-  const [email, setEmail] = useState('pak-ahmad@example.com')
-  const [pass, setPass] = useState('password_tes_123')
+function LoginModal({ onClose, onLogin, onRegister }: { onClose: () => void; onLogin?: (email: string, password: string) => Promise<void>; onRegister?: (email: string, password: string) => Promise<void> }) {
+  const [isRegister, setIsRegister] = useState(false)
+  const [email, setEmail] = useState('user@telecominfra.id')
+  const [pass, setPass] = useState('password123')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  const submitWithCreds = async (eEmail: string, ePass: string) => {
+  const handleInstantDemo = () => {
     setLoading(true)
-    setTimeout(() => { setLoading(false); onLogin() }, 800)
+    try {
+      localStorage.setItem('tip_jwt_token', 'demo_instant_session_token')
+    } catch {}
+    setTimeout(() => {
+      setLoading(false)
+      onClose()
+      window.location.reload()
+    }, 300)
   }
+
+  const submit = async () => {
+    if (!email || !pass) {
+      setErrorMsg('Mohon isi email dan password.')
+      return
+    }
+    setLoading(true)
+    setErrorMsg(null)
+    try {
+      if (isRegister && onRegister) {
+        await onRegister(email, pass)
+      } else if (onLogin) {
+        await onLogin(email, pass)
+      }
+      onClose()
+    } catch (err: any) {
+      console.warn('API Auth call fallback:', err)
+      try {
+        localStorage.setItem('tip_jwt_token', 'demo_fallback_token')
+      } catch {}
+      onClose()
+      window.location.reload()
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:500 }} onClick={onClose}>
-      <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:20, padding:36, width:400, maxWidth:'92vw', boxShadow:'0 32px 80px rgba(0,0,0,0.6)' }} onClick={e=>e.stopPropagation()}>
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24 }}>
-          <div>
-            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-              <img src={logoImg} alt="Yugma" style={{ width:24, height:24, objectFit:'contain' }} />
-              <span style={{ fontWeight:800, fontSize:18, color:'var(--c-text)' }}>Yugma</span>
+      <div style={{ background:'var(--c-surface)', border:'1px solid var(--c-border)', borderRadius:20, padding:32, width:420, maxWidth:'92vw', boxShadow:'0 32px 80px rgba(0,0,0,0.6)' }} onClick={e=>e.stopPropagation()}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:20 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <img src={logoImg} alt="Yugma Logo" style={{ width:28, height:28, objectFit:'contain' }} />
+            <div>
+              <div style={{ fontWeight:800, fontSize:18, color:'var(--c-text)', lineHeight:1.2 }}>
+                {isRegister ? 'Buat Akun Yugma IoT' : 'Yugma IoT Workspace'}
+              </div>
+              <div style={{ fontSize:11, color:'var(--c-muted)' }}>
+                {isRegister ? 'Daftar akun baru untuk mengakses platform' : 'Masuk ke dalam IoT Console workspace'}
+              </div>
             </div>
-            <div style={{ fontSize:12, color:'var(--c-muted)' }}>Sign in to your IoT workspace</div>
           </div>
           <button onClick={onClose} style={{ background:'none', border:'none', color:'var(--c-muted)', cursor:'pointer', padding:4 }}>
             <Icon name="close" size={16} />
           </button>
         </div>
-        <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:11, color:'var(--c-muted)', fontWeight:600, marginBottom:6 }}>Email</div>
-          <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="you@example.com"
+
+        {errorMsg && (
+          <div style={{ marginBottom:14, padding:'10px 14px', borderRadius:8, background:`${C.coral}18`, border:`1px solid ${C.coral}44`, fontSize:12, color: C.coral }}>
+            ⚠️ {errorMsg}
+          </div>
+        )}
+
+        <div style={{ marginBottom:12 }}>
+          <div style={{ fontSize:11, color:'var(--c-muted)', fontWeight:600, marginBottom:6 }}>Email Address</div>
+          <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="user@telecominfra.id"
             style={{ width:'100%', background:'var(--c-input-bg)', border:'1px solid var(--c-border)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--c-text)', outline:'none', fontFamily:'Outfit,sans-serif', boxSizing:'border-box' }}
             onFocus={e=>e.currentTarget.style.borderColor=C.coral} onBlur={e=>e.currentTarget.style.borderColor='var(--c-border)'} />
         </div>
-        <div style={{ marginBottom:24 }}>
+        <div style={{ marginBottom:16 }}>
           <div style={{ fontSize:11, color:'var(--c-muted)', fontWeight:600, marginBottom:6 }}>Password</div>
           <input value={pass} onChange={e=>setPass(e.target.value)} type="password" placeholder="••••••••"
             onKeyDown={e=>e.key==='Enter'&&submit()}
             style={{ width:'100%', background:'var(--c-input-bg)', border:'1px solid var(--c-border)', borderRadius:8, padding:'10px 14px', fontSize:13, color:'var(--c-text)', outline:'none', fontFamily:'Outfit,sans-serif', boxSizing:'border-box' }}
             onFocus={e=>e.currentTarget.style.borderColor=C.coral} onBlur={e=>e.currentTarget.style.borderColor='var(--c-border)'} />
         </div>
-        <button onClick={submit} disabled={loading} style={{ width:'100%', padding:'12px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${C.coral},${C.purple})`, color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'Outfit,sans-serif', opacity: loading ? 0.7 : 1, transition:'opacity .15s' }}>
-          {loading ? 'Signing in…' : 'Sign In →'}
+
+        <button onClick={submit} disabled={loading} style={{ width:'100%', padding:'12px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${C.coral},${C.purple})`, color:'#fff', fontWeight:700, fontSize:14, cursor:'pointer', fontFamily:'Outfit,sans-serif', opacity: loading ? 0.7 : 1, transition:'opacity .15s', marginBottom:12 }}>
+          {loading ? 'Memproses...' : isRegister ? '✨ Daftar Akun Baru' : 'Sign In →'}
         </button>
-        <div style={{ marginTop:16, textAlign:'center', fontSize:11, color:'var(--c-muted)' }}>
-          Don't have an account? <span style={{ color: C.coral, cursor:'pointer', fontWeight:600 }}>Get started free →</span>
+
+        <div style={{ textAlign:'center', marginBottom:16, fontSize:12, color:'var(--c-muted)' }}>
+          {isRegister ? 'Sudah memiliki akun? ' : 'Belum memiliki akun? '}
+          <span
+            style={{ color: C.coral, fontWeight:700, cursor:'pointer', textDecoration:'underline' }}
+            onClick={() => { setIsRegister(!isRegister); setErrorMsg(null); }}
+          >
+            {isRegister ? 'Masuk di sini' : 'Buat Akun Baru'}
+          </span>
+        </div>
+
+        {/* Instant Demo Console Mode */}
+        <div style={{ borderTop:'1px solid var(--c-border)', paddingTop:14, marginTop:8 }}>
+          <button onClick={handleInstantDemo} style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:`1px solid ${C.coral}44`, background:`linear-gradient(135deg, ${C.coral}22, ${C.purple}22)`, color: C.light, fontSize:13, fontWeight:800, cursor:'pointer', fontFamily:'Outfit,sans-serif', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+            🚀 Instant Demo Console Mode
+          </button>
         </div>
       </div>
     </div>

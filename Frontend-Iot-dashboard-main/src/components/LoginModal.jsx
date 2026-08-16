@@ -169,6 +169,27 @@ function LoginModal({ onClose, onLoginSuccess }) {
               {isRegister ? "Login di sini" : "Daftar Akun Baru"}
             </span>
           </div>
+
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: 12, marginTop: 6 }}>
+            <button
+              type="button"
+              className="btn-emerald-primary"
+              style={{ justifyContent: "center", width: "100%", background: "linear-gradient(135deg, rgba(16,185,129,0.2), rgba(99,102,241,0.2))", border: "1px solid rgba(16,185,129,0.4)" }}
+              onClick={() => {
+                const accountData = {
+                  name: "Demo User",
+                  email: "demo@telecominfra.id",
+                  tier: "paid",
+                  isLoggedIn: true,
+                };
+                try { localStorage.setItem("tip_jwt_token", "demo_instant_session_token"); } catch {}
+                onLoginSuccess(accountData);
+                onClose();
+              }}
+            >
+              <span>🚀 Instant Demo Console Mode</span>
+            </button>
+          </div>
         </form>
       </div>
     </div>
