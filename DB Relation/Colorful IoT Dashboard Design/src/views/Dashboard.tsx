@@ -5,6 +5,7 @@ import { C, WIDGET_CATALOG } from "@/lib/theme"
 
 type CanvasWidget = { id: string; type: string; title: string; color: string; size: "normal" | "wide" }
 const defaultColor = (index: number) => [C.coral, C.purple, C.magenta, C.amber, C.teal][index % 5]
+const createWidgetId = () => globalThis.crypto?.randomUUID?.() ?? `widget-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
 function WidgetLibrary({ onAdd, onClose }: { onAdd: (entry: (typeof WIDGET_CATALOG)[number]) => void; onClose: () => void }) {
   const [query, setQuery] = useState("")
@@ -43,7 +44,7 @@ export default function DashboardView({ project }: { project: Project | null }) 
     catch (error) { setMessage(error instanceof Error ? error.message : "Gagal menyimpan dashboard.") }
   }
   const add = (entry: (typeof WIDGET_CATALOG)[number]) => {
-    const widget: CanvasWidget = { id: crypto.randomUUID(), type:entry.type, title:entry.label, color:defaultColor(widgets.length), size:entry.defaultColSpan > 1 ? "wide" : "normal" }
+    const widget: CanvasWidget = { id:createWidgetId(), type:entry.type, title:entry.label, color:defaultColor(widgets.length), size:entry.defaultColSpan > 1 ? "wide" : "normal" }
     save([...widgets, widget]); setShowLibrary(false)
   }
   if (!project) return <Empty title="Pilih atau buat project" text="Dashboard dibuat terpisah untuk setiap project." />

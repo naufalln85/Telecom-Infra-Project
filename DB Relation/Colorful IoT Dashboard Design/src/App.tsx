@@ -318,7 +318,7 @@ function AppShell() {
           {nav === 'users'       && <MembersView project={activeProject} accountId={account?.id} />}
           {nav === 'analytics'   && <AnalyticsView project={activeProject} onNavigate={key => setNav(key)} />}
           {nav === 'gateway'     && <GatewayView project={activeProject} onNavigate={key => setNav(key)} />}
-          {nav === 'aiml'        && <AimlView />}
+          {nav === 'aiml'        && <AimlView onNavigate={key => setNav(key)} />}
           {nav === 'settings'    && <SettingsView />}
           {nav === 'admin'       && <Empty title="Panel administrasi" text="Akses administrasi global tidak diaktifkan pada workspace pengguna." />}
         </main>
