@@ -95,7 +95,7 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip_admin}:${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}@db:5432/${POSTGRES_DB:-iot_platform_tip}
-      DATABASE_URL_SYNC: postgresql+psycopg2://${POSTGRES_USER:-tip_admin}:${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}@db:5432/${POSTGRES_DB:-iot_platform_tip}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-tip_admin}:${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}@db:5432/${POSTGRES_DB:-iot_platform_tip}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:-x7TrLTJmZaRkPZpWzS3BD4Xl}

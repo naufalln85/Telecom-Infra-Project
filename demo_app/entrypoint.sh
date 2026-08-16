@@ -3,7 +3,7 @@
 # accounts, projects, devices, or telemetry are ever inserted here.
 set -eu
 
-until python -c "import os, psycopg2; psycopg2.connect(os.environ.get('DATABASE_URL_SYNC', os.environ['DATABASE_URL'].replace('postgresql+asyncpg://', 'postgresql://')))"; do
+until python -c "import os, psycopg2; url = os.environ.get('DATABASE_URL_SYNC', os.environ.get('DATABASE_URL', '')).replace('postgresql+psycopg2://', 'postgresql://').replace('postgresql+asyncpg://', 'postgresql://'); psycopg2.connect(url)"; do
   echo "[entrypoint] PostgreSQL belum siap; mencoba lagi dalam 3 detik..."
   sleep 3
 done
