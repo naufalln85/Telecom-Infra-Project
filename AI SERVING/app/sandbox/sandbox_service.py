@@ -3,12 +3,12 @@ import socket
 import json
 import os
 
-SANDBOX_HOST = "127.0.0.1"
-SANDBOX_PORT = 9000
+SANDBOX_HOST = os.getenv("SANDBOX_HOST", "ai-sandbox")
+SANDBOX_PORT = int(os.getenv("SANDBOX_PORT", "9000"))
 
 
 def run_in_sandbox(model_path, input_name, output_name, input_data):
-    filename = os.path.basename(model_path)
+    filename = os.path.basename(str(model_path).replace("\\", "/"))
     model_path_in_container = f"/sandbox/models/{filename}"
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -34,5 +34,7 @@ def run_in_sandbox(model_path, input_name, output_name, input_data):
         return [response["prediction"]]
     except socket.timeout:
         raise RuntimeError("Timeout menghubungi sandbox lewat TCP socket.")
+    except OSError as exc:
+        raise RuntimeError(f"Sandbox tidak dapat dihubungi: {exc}") from exc
     finally:
         client.close()

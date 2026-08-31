@@ -1,14 +1,16 @@
 # app/db/result_service.py
 import sqlite3
 import json
+from pathlib import Path
 from datetime import datetime, timezone
 
-DB_PATH = "/home/dino4/ai-serving/data/inference_results.db"
+DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DB_PATH = DATA_DIR / "inference_results.db"
 
 
 def init_db():
     import os
-    os.makedirs("/home/dino4/ai-serving/data", exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS inference_results (

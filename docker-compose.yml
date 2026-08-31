@@ -17,13 +17,13 @@ services:
     restart: unless-stopped
 
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-tip_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}
-      POSTGRES_DB: ${POSTGRES_DB:-iot_platform_tip}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
       POSTGRESQL_CONF_shared_preload_libraries: "timescaledb,pg_stat_statements"
 
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
 
     volumes:
       - postgres_data:/home/postgres/pgdata/data
@@ -35,7 +35,7 @@ services:
       -c config_file=/etc/postgresql/postgresql.conf
 
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-tip_admin} -d ${POSTGRES_DB:-iot_platform_tip}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER must be set} -d ${POSTGRES_DB:?POSTGRES_DB must be set}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -54,20 +54,20 @@ services:
 
     command: >
       redis-server
-      --requirepass ${REDIS_PASSWORD:-x7TrLTJmZaRkPZpWzS3BD4Xl}
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
       --appendonly yes
       --appendfsync everysec
       --maxmemory ${REDIS_MAXMEMORY:-512mb}
       --maxmemory-policy allkeys-lru
 
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
 
     volumes:
       - redis_data:/data
 
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-x7TrLTJmZaRkPZpWzS3BD4Xl}", "PING"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}", "PING"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -89,18 +89,19 @@ services:
     ports:
       - "8000:8000"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-tip_admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}
-      POSTGRES_DB: ${POSTGRES_DB:-iot_platform_tip}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER must be set}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB must be set}
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip_admin}:${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}@db:5432/${POSTGRES_DB:-iot_platform_tip}
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-tip_admin}:${POSTGRES_PASSWORD:-w10VCG9XJoZN46btfiBhrzsJ}@db:5432/${POSTGRES_DB:-iot_platform_tip}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:?POSTGRES_USER must be set}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@db:5432/${POSTGRES_DB:?POSTGRES_DB must be set}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-x7TrLTJmZaRkPZpWzS3BD4Xl}
-      REDIS_URL: redis://:${REDIS_PASSWORD:-x7TrLTJmZaRkPZpWzS3BD4Xl}@redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-4c3a56ae12d5f21cee24051b1764e5bd70dccff4d3c316f7268550f532d1997e}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set}
     depends_on:
       db:
         condition: service_healthy
@@ -116,7 +117,7 @@ services:
       - iot_platform_net
 
   # ---------------------------------------------------------------------------
-  # AI SERVING MODULE: ONNX Inference & Sandbox (AI SERVING)
+  # AI SERVING MODULE: ONNX Inference API
   # ---------------------------------------------------------------------------
   ai-serving:
     build:
@@ -129,11 +130,69 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-x7TrLTJmZaRkPZpWzS3BD4Xl}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      SANDBOX_HOST: ai-sandbox
+      SANDBOX_PORT: 9000
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ai_models:/app/uploads
+      - ai_registry:/app/data
     depends_on:
       redis:
+        condition: service_healthy
+      ai-sandbox:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - iot_platform_net
+
+  # Isolated inference runtime.  Models are shared read-only from a named
+  # volume; the API container never needs host Docker socket access.
+  ai-sandbox:
+    build:
+      context: ./AI SERVING/container_app
+      dockerfile: Dockerfile
+    container_name: tip_ai_sandbox
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ai_models:/sandbox/models:ro
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.create_connection(('127.0.0.1', 9000), 2); s.close()\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - iot_platform_net
+
+  # Redis Streams worker for asynchronous AI jobs.
+  ai-worker:
+    build:
+      context: ./AI SERVING
+      dockerfile: Dockerfile
+    container_name: tip_ai_worker
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker.redis_consumer"]
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      SANDBOX_HOST: ai-sandbox
+      SANDBOX_PORT: 9000
+      PLATFORM_HMAC_SECRET: ${PLATFORM_HMAC_SECRET:-}
+    volumes:
+      - ai_models:/app/uploads:ro
+      - ai_registry:/app/data:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      ai-sandbox:
         condition: service_healthy
     networks:
       - iot_platform_net
@@ -149,8 +208,8 @@ services:
       dockerfile: Dockerfile
     container_name: tip_frontend
     restart: unless-stopped
-    ports:
-      - "5173:80"
+    expose:
+      - "80"
     depends_on:
       backend:
         condition: service_healthy
@@ -170,7 +229,6 @@ services:
     restart: unless-stopped
 
     ports:
-      - "${GATEWAY_HTTP_PORT:-3000}:3000"       # HTTP Telemetry Ingestion
       - "${GATEWAY_MQTT_PORT:-1884}:1884"       # MQTT Broker (Aedes)
       - "${GATEWAY_COAP_PORT:-5683}:5683/udp"   # CoAP UDP Server
 
@@ -194,6 +252,27 @@ services:
     networks:
       - iot_platform_net
 
+  # Single public entrypoint.  Provide PUBLIC_DOMAIN in .env and point its DNS
+  # A/AAAA record here; Caddy obtains and renews HTTPS certificates automatically.
+  web:
+    image: caddy:2.8-alpine
+    container_name: tip_web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_started
+    networks:
+      - iot_platform_net
+
 # =============================================================================
 # VOLUMES
 # =============================================================================
@@ -202,6 +281,14 @@ volumes:
     name: tip_postgres_data
   redis_data:
     name: tip_redis_data
+  ai_models:
+    name: tip_ai_models
+  ai_registry:
+    name: tip_ai_registry
+  caddy_data:
+    name: tip_caddy_data
+  caddy_config:
+    name: tip_caddy_config
 
 # =============================================================================
 # NETWORKS

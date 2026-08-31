@@ -23,8 +23,9 @@ import sys
 import time
 
 # ─── Konfigurasi Redis ────────────────────────────────────────────────────────
-REDIS_HOST       = os.getenv("REDIS_HOST", "localhost")
+REDIS_HOST       = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT       = int(os.getenv("REDIS_PORT", 6379))
+REDIS_PASSWORD   = os.getenv("REDIS_PASSWORD")
 REDIS_STREAM_IN  = "event-bus-stream"       # Stream masuk dari Gateway/Sensor
 REDIS_STREAM_OUT = "ai-results-stream"      # Stream keluar ke WebSocket/Dashboard
 REDIS_GROUP_NAME = "ai-inference-group"
@@ -38,6 +39,7 @@ def get_redis_client():
         client = redis.Redis(
             host=REDIS_HOST,
             port=REDIS_PORT,
+            password=REDIS_PASSWORD,
             db=0,
             decode_responses=True
         )
@@ -93,7 +95,9 @@ def run_inference(event_data: dict) -> dict:
         if not api_url:
             return {"status": "error", "message": "Field 'external_api_url' wajib untuk mode external_api."}
 
-        secret  = os.getenv("PLATFORM_HMAC_SECRET", "iot-platform-secret-key-2024")
+        secret = os.getenv("PLATFORM_HMAC_SECRET")
+        if not secret:
+            return {"status": "error", "message": "PLATFORM_HMAC_SECRET belum dikonfigurasi."}
         payload = json.dumps(event_data)
         sig     = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 

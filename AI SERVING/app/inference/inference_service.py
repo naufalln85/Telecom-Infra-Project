@@ -2,6 +2,7 @@ from app.external.core_backend_client_mock import get_account_tier, validate_cha
 from app.db.result_service import save_result
 from app.registry.registry_service import get_model_by_id
 from app.sandbox.sandbox_service import run_in_sandbox
+from pathlib import Path
 
 def predict(model_id, input_data, project_id=None, device_id=None, channel_id=None):
     tier = "free"
@@ -22,6 +23,16 @@ def predict(model_id, input_data, project_id=None, device_id=None, channel_id=No
             "message": "Model tidak ditemukan"
         }
 
+    # Registry records created on Windows may contain backslashes.  Normalize
+    # them so the same model registry works inside the Linux containers.
+    model_path = Path(str(model["path"]).replace("\\", "/"))
+    if not model_path.is_file():
+        return {
+            "success": False,
+            "model_id": model_id,
+            "message": "File model tidak tersedia di volume AI Serving."
+        }
+
     expected_shape = None
     expected_type  = None
 
@@ -37,7 +48,7 @@ def predict(model_id, input_data, project_id=None, device_id=None, channel_id=No
                 "message": f"Library tidak tersedia: {e}. Jalankan: pip install onnxruntime numpy"
             }
 
-        session = ort.InferenceSession(model["path"])
+        session = ort.InferenceSession(str(model_path))
 
         input_name     = session.get_inputs()[0].name
         output_name    = session.get_outputs()[0].name
@@ -87,7 +98,7 @@ def predict(model_id, input_data, project_id=None, device_id=None, channel_id=No
         # ───────────────────────────────────────────────────────────────────
 
         prediction = run_in_sandbox(
-            model["path"],
+            str(model_path),
             input_name,
             output_name,
             reshaped_input.tolist()   # kirim sebagai nested list ke sandbox

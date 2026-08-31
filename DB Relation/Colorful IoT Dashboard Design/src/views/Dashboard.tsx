@@ -32,7 +32,11 @@ export default function DashboardView({ project }: { project: Project | null }) 
     if (!project) return
     setLoading(true)
     dashboardApi.get(project.id).then(saved => {
-      const valid = Array.isArray(saved) ? saved.filter((item): item is CanvasWidget => Boolean(item && typeof item.id === "string" && typeof item.type === "string" && typeof item.title === "string")).map((item, index) => ({ ...item, color:typeof item.color === "string" ? item.color : defaultColor(index), size:item.size === "wide" ? "wide" : "normal" })) : []
+      const valid: CanvasWidget[] = Array.isArray(saved)
+        ? saved
+            .filter((item): item is CanvasWidget => Boolean(item && typeof item.id === "string" && typeof item.type === "string" && typeof item.title === "string"))
+            .map((item, index): CanvasWidget => ({ ...item, color: typeof item.color === "string" ? item.color : defaultColor(index), size: item.size === "wide" ? "wide" : "normal" }))
+        : []
       setWidgets(valid)
     }).catch(error => setMessage(error instanceof Error ? error.message : "Gagal memuat dashboard.")).finally(() => setLoading(false))
   }, [project?.id])

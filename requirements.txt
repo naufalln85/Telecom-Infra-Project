@@ -75,6 +75,7 @@ python-multipart==0.0.9
 # pydantic-settings: load .env file dengan type validation otomatis
 # Setiap variabel di .env.example akan di-validasi saat startup
 pydantic-settings==2.3.3
+email-validator==2.2.0
 
 # python-dotenv: load .env file ke environment (dipakai pydantic-settings)
 python-dotenv==1.0.1

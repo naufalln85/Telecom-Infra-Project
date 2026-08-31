@@ -28,7 +28,14 @@ Session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 passwords, oauth = CryptContext(schemes=["bcrypt"], deprecated="auto"), OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 app = FastAPI(title="Yugma IoT API", version="2.0.0")
-app.add_middleware(CORSMiddleware, allow_origins=os.getenv("CORS_ORIGINS", "*").split(","), allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+cors_origins = [origin.strip() for origin in os.getenv("CORS_ORIGINS", "").split(",") if origin.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
+)
 
 class Credentials(BaseModel):
     email: EmailStr
@@ -176,6 +183,24 @@ async def save_dashboard(project_id: int, payload: DashboardInput, current=Depen
     await db.execute(text("""INSERT INTO project_dashboards (project_id,widgets) VALUES (:id,CAST(:widgets AS jsonb))
         ON CONFLICT (project_id) DO UPDATE SET widgets=EXCLUDED.widgets,updated_at=now()"""), {"id": project_id, "widgets": json.dumps(payload.widgets)})
     await db.commit(); return {"data": {"widgets": payload.widgets}}
+
+@app.get("/api/v2/projects/{project_id}/telemetry")
+async def latest_telemetry(project_id: int, current=Depends(account), db: AsyncSession = Depends(database)):
+    """Return the latest event for each device in a project.
+
+    The web client polls this endpoint after a device is registered.  Device
+    traffic never needs database access or a local-network address: it is
+    authenticated by its API key at the public gateway.
+    """
+    await member(project_id, current["id"], db)
+    result = await db.execute(text("""
+        SELECT DISTINCT ON (device_id) device_id, protocol, payload, received_at
+        FROM telemetry_events
+        WHERE project_id = :project_id
+        ORDER BY device_id, received_at DESC
+    """), {"project_id": project_id})
+    return {"data": rows(result)}
+
 @app.post("/api/v2/telemetry", status_code=202)
 async def ingest(payload: TelemetryInput, db: AsyncSession = Depends(database)):
     device = (await db.execute(text("SELECT id,project_id FROM devices WHERE api_key_hash=:hash AND deleted_at IS NULL"), {"hash": hashlib.sha256(payload.api_key.encode()).hexdigest()})).mappings().first()

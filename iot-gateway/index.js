@@ -11,7 +11,7 @@
  *   3. CoAP Server  (node-coap)  → Port 5683 (UDP)
  *
  * Semua data yang masuk akan di-forward ke Backend FastAPI (Modul A)
- * melalui HTTP POST ke endpoint /api/v1/save-data.
+ * melalui HTTP POST ke endpoint /api/v2/telemetry.
  * ============================================================================
  */
 

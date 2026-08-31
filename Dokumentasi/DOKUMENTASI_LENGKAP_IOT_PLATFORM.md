@@ -73,7 +73,7 @@
 │                               │ Axios HTTP POST                              │
 │                               ▼                                              │
 │                   Backend Forwarder Service                                   │
-│                   POST → http://backend:8000/api/v1/save-data                │
+│                   POST → http://backend:8000/api/v2/telemetry                │
 └───────────────────────────────┼──────────────────────────────────────────────┘
                                 │
                                 ▼
@@ -82,7 +82,7 @@
 │                       Container: tip_backend                                  │
 │                                                                              │
 │   ┌──────────────────────────────────────────────────────────────┐           │
-│   │  /api/v1/save-data  ← Penerima data dari Gateway            │           │
+│   │  /api/v2/telemetry  ← Penerima data dari Gateway            │           │
 │   │  1. Hash API Key (SHA-256) → Cocokkan di DB                 │           │
 │   │  2. Log telemetri ke in-memory buffer                       │           │
 │   │  3. Evaluasi Alert Rules → Threshold Check                  │           │
@@ -164,7 +164,7 @@
 Device mengirim data
   → Gateway menerima (HTTP/MQTT/CoAP)
   → Ajv validasi JSON Schema (device_id, temperature, humidity wajib)
-  → Jika valid: Axios POST ke backend /api/v1/save-data
+  → Jika valid: Axios POST ke backend /api/v2/telemetry
   → Backend: Hash API Key → Cari device di DB → Log → Evaluasi alert
 ```
 
@@ -324,7 +324,7 @@ Payload: {"device_id":"sensor-01","temperature":38.5,"humidity":62}
 
 Langkah 3 — Gateway Forward ke Backend
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Axios POST http://backend:8000/api/v1/save-data
+Axios POST http://backend:8000/api/v2/telemetry
 Body: {
   "protocol": "MQTT",
   "api_key": "key_greenhouse_123",
@@ -586,11 +586,11 @@ coap-client -m post \
 
 | Method | Endpoint | Deskripsi |
 |--------|----------|-----------|
-| **POST** | **`/api/v1/save-data`** | **Penerima data dari IoT Gateway** |
+| **POST** | **`/api/v2/telemetry`** | **Penerima data dari IoT Gateway** |
 | GET | `/api/v1/gateway/logs` | Log telemetri terbaru |
 | GET | `/api/v1/gateway/stats` | Statistik per protokol |
 
-**Detail POST `/api/v1/save-data`**:
+**Detail POST `/api/v2/telemetry`**:
 
 Request Body (dari Gateway):
 ```json
@@ -678,7 +678,7 @@ Semua konfigurasi disimpan di file `.env` (tidak di-commit ke Git).
 | `GATEWAY_HTTP_PORT` | `3000` | Port HTTP Gateway |
 | `GATEWAY_MQTT_PORT` | `1884` | Port MQTT Gateway |
 | `GATEWAY_COAP_PORT` | `5683` | Port CoAP Gateway |
-| `BACKEND_URL` | `http://backend:8000/api/v1/save-data` | URL backend dari gateway |
+| `BACKEND_URL` | `http://backend:8000/api/v2/telemetry` | URL backend dari gateway |
 
 ### Generate Secret Key
 ```bash
@@ -785,7 +785,7 @@ services:
 
 Semua service terhubung via jaringan internal `tip_internal_net` (bridge driver):
 - Service saling memanggil menggunakan **nama service** (bukan IP)
-- Contoh: Gateway memanggil `http://backend:8000/api/v1/save-data`
+- Contoh: Gateway memanggil `http://backend:8000/api/v2/telemetry`
 - Dari luar Docker, akses melalui port mapping yang di-expose
 
 ### 11.3 Docker Volumes (Persistent Data)
@@ -838,7 +838,7 @@ docker compose up -d
 # Cek apakah backend sudah running
 docker compose ps backend
 # Pastikan BACKEND_URL di docker-compose.yml benar
-# Harus: http://backend:8000/api/v1/save-data (bukan localhost!)
+# Harus: http://backend:8000/api/v2/telemetry (bukan localhost!)
 
 # Test dari dalam container gateway
 docker compose exec iot-gateway wget -qO- http://backend:8000/api/status

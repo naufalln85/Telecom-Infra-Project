@@ -1,48 +1,51 @@
 import json
-import os
 import uuid
 from datetime import datetime
+from pathlib import Path
 
-REGISTRY_FILE = "data/registry.json"
+REGISTRY_FILE = Path(__file__).resolve().parents[2] / "data" / "registry.json"
 
 
 def register_model(filename, path):
 
-    if not os.path.exists(REGISTRY_FILE):
-        with open(REGISTRY_FILE, "w") as f:
+    REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if not REGISTRY_FILE.exists():
+        with REGISTRY_FILE.open("w", encoding="utf-8") as f:
             json.dump([], f)
 
-    with open(REGISTRY_FILE, "r") as f:
+    with REGISTRY_FILE.open("r", encoding="utf-8") as f:
         models = json.load(f)
 
     model = {
         "id": str(uuid.uuid4())[:8],
         "filename": filename,
-        "path":path,
+        "path": Path(path).as_posix(),
         "status": "ready",
         "uploaded_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
 
     models.append(model)
 
-    with open(REGISTRY_FILE, "w") as f:
+    with REGISTRY_FILE.open("w", encoding="utf-8") as f:
         json.dump(models, f, indent=4)
 
     return model
 
 def get_all_models():
 
-    if not os.path.exists(REGISTRY_FILE):
+    if not REGISTRY_FILE.exists():
         return []
 
-    with open(REGISTRY_FILE, "r") as f:
+    with REGISTRY_FILE.open("r", encoding="utf-8") as f:
         models = json.load(f)
 
     return models
 
 def get_model_by_id(model_id):
 
-    with open(REGISTRY_FILE, "r") as f:
+    if not REGISTRY_FILE.exists():
+        return None
+    with REGISTRY_FILE.open("r", encoding="utf-8") as f:
         models = json.load(f)
 
     for model in models:

@@ -1,11 +1,18 @@
 const TOKEN_KEY = "tip_jwt_token"
 const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "")
+const GATEWAY_BASE = (import.meta.env.VITE_GATEWAY_BASE_URL ?? "/gateway").replace(/\/$/, "")
 
 export type Account = { id: number; email: string; tier: "free" | "paid"; created_at?: string }
 export type Project = { id: number; name: string; role: "owner" | "collaborator"; created_at?: string }
 export type Device = { id: number; name: string; project_id: number; api_key?: string; created_at?: string }
 export type Channel = { id: number; device_id: number; name: string; channel_type: "numeric" | "boolean" | "string"; unit?: string | null }
 export type Member = { id: number; email: string; tier: string; role: "owner" | "collaborator"; created_at?: string }
+export type TelemetryEvent = { device_id: number; protocol: "HTTP" | "MQTT" | "COAP"; payload: Record<string, unknown>; received_at: string }
+
+// With the default relative URL, the device uses the same public domain as the
+// web application (for example https://iot.example.com/gateway/...).  No LAN
+// address or server IP is exposed to the customer.
+export const publicTelemetryUrl = () => new URL(`${GATEWAY_BASE}/api/v1/telemetry`, window.location.origin).toString()
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(TOKEN_KEY)
@@ -61,4 +68,5 @@ export const dashboardApi = {
 }
 export const telemetryApi = {
   ingest: (apiKey: string, data: Record<string, string | number | boolean>) => request<{ accepted: boolean }>("/api/v2/telemetry", { method: "POST", body: JSON.stringify({ protocol: "HTTP", api_key: apiKey, data }) }),
+  async latest(projectId: number) { return (await request<{ data: TelemetryEvent[] }>(`/api/v2/projects/${projectId}/telemetry`)).data },
 }

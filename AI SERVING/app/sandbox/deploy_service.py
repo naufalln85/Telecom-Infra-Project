@@ -1,42 +1,14 @@
-# app/sandbox/deploy_service.py
 import os
-from app.sandbox.docker_service import run_command
-from app.sandbox.sandbox_manager import sandbox_manager
+import socket
 
-SANDBOX_IMAGE = "ai-sandbox:latest"
-CONTAINER_NAME = "ai-sandbox-persistent"
-MODELS_DIR = "/home/dino4/ai-serving/uploads"
-SANDBOX_PORT = 9000
+SANDBOX_HOST = os.getenv("SANDBOX_HOST", "ai-sandbox")
+SANDBOX_PORT = int(os.getenv("SANDBOX_PORT", "9000"))
 
 
 def ensure_sandbox_running():
-    if sandbox_manager.is_running():
-        return {"success": True, "message": "Sandbox sudah jalan.", "container_id": sandbox_manager.container_id}
-
-    os.makedirs(MODELS_DIR, exist_ok=True)
-
-    check_cmd = ["docker", "inspect", "-f", "{{.State.Running}}", CONTAINER_NAME]
-    ok, output = run_command(check_cmd)
-    if ok and output.strip() == "true":
-        sandbox_manager.set_running(CONTAINER_NAME)
-        return {"success": True, "message": "Sandbox sudah jalan dari sebelumnya.", "container_id": CONTAINER_NAME}
-
-    run_command(["docker", "rm", "-f", CONTAINER_NAME])
-
-    docker_cmd = [
-        "docker", "run", "-d",
-        "--name", CONTAINER_NAME,
-        "--runtime=runsc",
-        "-p", f"127.0.0.1:{SANDBOX_PORT}:{SANDBOX_PORT}",
-        "--cpus=1",
-        "--memory=256m",
-        "-v", f"{MODELS_DIR}:/sandbox/models:ro",
-        SANDBOX_IMAGE,
-    ]
-
-    ok, output = run_command(docker_cmd)
-    if not ok:
-        return {"success": False, "message": output}
-
-    sandbox_manager.set_running(CONTAINER_NAME)
-    return {"success": True, "container_id": output}
+    """Verify the Compose-managed sandbox without a privileged Docker socket."""
+    try:
+        with socket.create_connection((SANDBOX_HOST, SANDBOX_PORT), timeout=2):
+            return {"success": True, "message": "Sandbox siap menerima inferensi."}
+    except OSError as exc:
+        return {"success": False, "message": f"Sandbox tidak dapat dihubungi: {exc}"}
