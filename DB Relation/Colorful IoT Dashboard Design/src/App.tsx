@@ -111,10 +111,16 @@ function AppShell() {
       if (cancelled) return
       setAccount(me)
       if (list.length === 0) {
-        const created = await projectsApi.create("Project Utama")
-        if (cancelled) return
-        setProjects([created])
-        setActiveProject(created)
+        try {
+          const created = await projectsApi.create("Project Utama")
+          if (cancelled) return
+          setProjects([created])
+          setActiveProject(created)
+        } catch {
+          if (cancelled) return
+          setProjects([])
+          setActiveProject(null)
+        }
       } else {
         setProjects(list)
         setActiveProject(list[0])
@@ -181,7 +187,7 @@ function AppShell() {
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside style={{ width: sidebar ? 216 : 60, flexShrink:0, transition:'width .22s', background: C.bg, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ padding:'14px 14px', display:'flex', alignItems:'center', gap:10, borderBottom:`1px solid ${C.border}` }}>
-          <img src={logoImg} alt="Yugma" style={{ width:32, height:32, objectFit:'contain', flexShrink:0 }} />
+          <img src={logoImg} onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src='/logo.png' }} alt="Yugma" style={{ width:32, height:32, objectFit:'contain', flexShrink:0 }} />
           {sidebar && <div style={{ flex:1, minWidth:0 }}><div style={{ fontWeight:800, fontSize:14, color: C.light }}>Yugma</div><div style={{ fontSize:9, color: C.muted, marginTop:1 }}>IoT Platform</div></div>}
           <button onClick={()=>setSidebar(p=>!p)} style={{ background:'none', border:'none', color: C.muted, cursor:'pointer', padding:2, flexShrink:0, transition:'color .15s' }}
             onMouseEnter={e=>e.currentTarget.style.color=C.light} onMouseLeave={e=>e.currentTarget.style.color=C.muted}>

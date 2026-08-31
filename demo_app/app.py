@@ -97,7 +97,12 @@ async def list_projects(current=Depends(account), db: AsyncSession = Depends(dat
 @app.post("/api/v2/projects", status_code=201)
 async def create_project(payload: ProjectInput, current=Depends(account), db: AsyncSession = Depends(database)):
     if current["tier"] == "free":
-        count = (await db.execute(text("SELECT count(*) FROM project_members WHERE account_id=:id AND role='owner'"), {"id": current["id"]})).scalar_one()
+        count = (await db.execute(text("""
+            SELECT count(*)
+            FROM project_members pm
+            JOIN projects p ON p.id = pm.project_id
+            WHERE pm.account_id = :id AND pm.role = 'owner' AND p.deleted_at IS NULL
+        """), {"id": current["id"]})).scalar_one()
         if count >= 2: raise HTTPException(402, "Paket Free maksimal dua project. Upgrade untuk membuat project tambahan.")
     try:
         project = (await db.execute(text("INSERT INTO projects (name) VALUES (:name) RETURNING id,name,created_at"), {"name": payload.name.strip()})).mappings().one()

@@ -16,10 +16,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy seluruh project (backend + alembic + DB Relation schema)
+# CATATAN KEAMANAN: .env TIDAK di-copy ke image (password bocor!).
+# Semua env vars diinjeksi oleh docker-compose.yml saat runtime.
 COPY demo_app/ /app/demo_app/
 COPY db/ /app/db/
 COPY alembic.ini /app/alembic.ini
-COPY .env /app/.env
 
 # Copy entrypoint script dan beri execute permission
 COPY demo_app/entrypoint.sh /app/entrypoint.sh
