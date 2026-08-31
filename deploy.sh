@@ -120,57 +120,80 @@ sudo apt-get install -y -qq \
 ok "Semua utilitas berhasil diinstall."
 
 # =============================================================================
-# STEP 3 — Konfigurasi File .env
+# STEP 3 — Konfigurasi File .env Otomatis (Tanpa Perlu Edit Manual)
 # =============================================================================
-step "3" "Konfigurasi Environment (.env)"
+step "3" "Konfigurasi Environment (.env) Otomatis"
 
 cd "$PROJECT_DIR"
 
+# Dapatkan IP Server Publik
+VM_IP=$(ip addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1 || echo "localhost")
+PUBLIC_IP=$(curl -s --connect-timeout 3 https://api.ipify.org 2>/dev/null || echo "$VM_IP")
+
+# Tentukan Domain / IP yang digunakan (bisa di-pass via argumen: ./deploy.sh nama-domain.com)
+TARGET_DOMAIN="${1:-${PUBLIC_DOMAIN:-$PUBLIC_IP}}"
+
+# Jika file .env belum ada, buat dari .env.example
 if [ ! -f ".env" ]; then
     if [ ! -f ".env.example" ]; then
         error "File .env.example tidak ditemukan! Pastikan berada di direktori project."
     fi
     cp .env.example .env
-    warn "File .env dibuat dari .env.example."
-    warn "PENTING: Edit file .env dengan password yang kuat!"
-    echo ""
-
-    # Generate password otomatis jika masih placeholder
-    PG_PASS=$(openssl rand -base64 24 | tr -d '/+=')
-    REDIS_PASS=$(openssl rand -base64 24 | tr -d '/+=')
-    SECRET_KEY=$(openssl rand -hex 32)
-
-    # Inject password ke .env
-    sed -i "s/GANTI_PASSWORD_KUAT_DISINI/${PG_PASS}/g" .env
-    sed -i "s/GANTI_REDIS_PASSWORD_DISINI/${REDIS_PASS}/g" .env
-    sed -i "s/GANTI_DENGAN_RANDOM_HEX_64_KARAKTER/${SECRET_KEY}/g" .env
-
-    # Pastikan DATABASE_URL dan REDIS_URL menggunakan nama service Docker (bukan localhost)
-    sed -i "s|@127.0.0.1:5432|@db:5432|g" .env
-    sed -i "s|@localhost:5432|@db:5432|g" .env
-    sed -i "s|@127.0.0.1:6379|@redis:6379|g" .env
-    sed -i "s|@localhost:6379|@redis:6379|g" .env
-
-    ok "Password database & secret key di-generate otomatis!"
-    info "Database Password : ${PG_PASS}"
-    info "Redis Password    : ${REDIS_PASS}"
-    info "Secret Key        : ${SECRET_KEY:0:16}...(tersimpan di .env)"
-
-else
-    # Validasi tidak ada placeholder yang tersisa
-    if grep -qE "GANTI_PASSWORD|GANTI_REDIS|GANTI_DENGAN_RANDOM" .env 2>/dev/null; then
-        warn "File .env masih mengandung placeholder. Auto-generate password..."
-        PG_PASS=$(openssl rand -base64 24 | tr -d '/+=')
-        REDIS_PASS=$(openssl rand -base64 24 | tr -d '/+=')
-        SECRET_KEY=$(openssl rand -hex 32)
-        sed -i "s/GANTI_PASSWORD_KUAT_DISINI/${PG_PASS}/g" .env
-        sed -i "s/GANTI_REDIS_PASSWORD_DISINI/${REDIS_PASS}/g" .env
-        sed -i "s/GANTI_DENGAN_RANDOM_HEX_64_KARAKTER/${SECRET_KEY}/g" .env
-        ok "Password auto-generated dan diisi ke .env."
-    else
-        ok "File .env sudah terisi dengan benar."
-    fi
+    info "File .env otomatis dibuat dari .env.example."
 fi
+
+# Generate password & secret key acak yang kuat
+PG_PASS=$(openssl rand -base64 24 | tr -d '/+=')
+REDIS_PASS=$(openssl rand -base64 24 | tr -d '/+=')
+SECRET_KEY=$(openssl rand -hex 32)
+HMAC_SECRET=$(openssl rand -hex 32)
+
+# Mengisi/Update password & secret key jika masih placeholder
+sed -i "s/GANTI_PASSWORD_KUAT_DISINI/${PG_PASS}/g" .env 2>/dev/null || true
+sed -i "s/GANTI_REDIS_PASSWORD_DISINI/${REDIS_PASS}/g" .env 2>/dev/null || true
+sed -i "s/GANTI_DENGAN_RANDOM_HEX_64_KARAKTER/${SECRET_KEY}/g" .env 2>/dev/null || true
+sed -i "s/GANTI_DENGAN_SECRET_HMAC_RANDOM/${HMAC_SECRET}/g" .env 2>/dev/null || true
+
+# Set mode produksi otomatis
+sed -i "s/^APP_ENV=.*/APP_ENV=production/g" .env 2>/dev/null || true
+sed -i "s/^DEBUG=.*/DEBUG=false/g" .env 2>/dev/null || true
+
+# Set PUBLIC_DOMAIN
+if grep -q "^PUBLIC_DOMAIN=" .env; then
+    sed -i "s|^PUBLIC_DOMAIN=.*|PUBLIC_DOMAIN=${TARGET_DOMAIN}|g" .env
+else
+    echo "PUBLIC_DOMAIN=${TARGET_DOMAIN}" >> .env
+fi
+
+# Set CORS_ORIGINS
+CORS_VAL="http://localhost,http://localhost:3000,http://localhost:5173,http://${PUBLIC_IP},https://${PUBLIC_IP},http://${TARGET_DOMAIN},https://${TARGET_DOMAIN}"
+if grep -q "^CORS_ORIGINS=" .env; then
+    sed -i "s|^CORS_ORIGINS=.*|CORS_ORIGINS=${CORS_VAL}|g" .env
+else
+    echo "CORS_ORIGINS=${CORS_VAL}" >> .env
+fi
+
+# Pastikan host database & redis menggunakan nama container docker (db & redis)
+sed -i "s|@127.0.0.1:5432|@db:5432|g" .env 2>/dev/null || true
+sed -i "s|@localhost:5432|@db:5432|g" .env 2>/dev/null || true
+sed -i "s|@127.0.0.1:6379|@redis:6379|g" .env 2>/dev/null || true
+sed -i "s|@localhost:6379|@redis:6379|g" .env 2>/dev/null || true
+
+# Sync DATABASE_URL dan REDIS_URL jika masih berisi default
+CURRENT_PG_PASS=$(grep "^POSTGRES_PASSWORD=" .env | cut -d '=' -f2)
+CURRENT_RD_PASS=$(grep "^REDIS_PASSWORD=" .env | cut -d '=' -f2)
+if [ -n "$CURRENT_PG_PASS" ]; then
+    sed -i "s|postgresql+asyncpg://tip_admin:[^@]*@db:5432|postgresql+asyncpg://tip_admin:${CURRENT_PG_PASS}@db:5432|g" .env 2>/dev/null || true
+    sed -i "s|postgresql+psycopg2://tip_admin:[^@]*@db:5432|postgresql+psycopg2://tip_admin:${CURRENT_PG_PASS}@db:5432|g" .env 2>/dev/null || true
+fi
+if [ -n "$CURRENT_RD_PASS" ]; then
+    sed -i "s|redis://:[^@]*@redis:6379|redis://:${CURRENT_RD_PASS}@redis:6379|g" .env 2>/dev/null || true
+fi
+
+ok "Konfigurasi .env telah disesuaikan secara otomatis!"
+info "Domain / Host Public : ${TARGET_DOMAIN}"
+info "IP Server Public    : ${PUBLIC_IP}"
+info "Mode Application    : production (DEBUG=false)"
 
 # Load env vars untuk digunakan di script ini
 set -a
