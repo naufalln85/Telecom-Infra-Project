@@ -486,9 +486,10 @@ echo ""
 docker compose ps
 echo ""
 
-# Dapatkan IP server
-VM_IP=$(ip addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
-PUBLIC_IP=$(curl -s --connect-timeout 3 https://api.ipify.org 2>/dev/null || echo "$VM_IP")
+# Dapatkan IP server (LAN, Tailscale, Public)
+LAN_IP=$(ip addr show 2>/dev/null | grep -oP '(?<=inet\s)192\.168\.\d+\.\d+' | head -1 || echo "$VM_IP")
+TS_IP=$(ip addr show tailscale0 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1 || echo "")
+PUBLIC_IP=$(curl -s --connect-timeout 3 https://api.ipify.org 2>/dev/null || echo "$LAN_IP")
 
 echo ""
 echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════════════════════╗${NC}"
@@ -496,13 +497,15 @@ echo -e "${GREEN}${BOLD}║   🎉  IoT Platform TIP BERHASIL DIJALANKAN! ALWAYS
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${BOLD}  🌐 Akses Aplikasi:${NC}"
-echo -e "     Frontend Dashboard   → ${CYAN}http://${PUBLIC_IP}:5173${NC}"
-echo -e "     Backend API          → ${CYAN}http://${PUBLIC_IP}:8000${NC}"
-echo -e "     Swagger Docs         → ${CYAN}http://${PUBLIC_IP}:8000/docs${NC}"
-echo -e "     IoT Gateway HTTP     → ${CYAN}http://${PUBLIC_IP}:3000${NC}"
-echo -e "     IoT Gateway MQTT     → ${CYAN}mqtt://${PUBLIC_IP}:1884${NC}"
-echo -e "     IoT Gateway CoAP     → ${CYAN}coap://${PUBLIC_IP}:5683${NC}"
-echo -e "     AI Serving           → ${CYAN}http://${PUBLIC_IP}:8001${NC}"
+if [ -n "$LAN_IP" ];  then echo -e "     Akses Lokal (Wi-Fi/LAN) → ${CYAN}http://${LAN_IP}:5173${NC}"; fi
+if [ -n "$TS_IP" ];   then echo -e "     Akses Tailscale VPN    → ${CYAN}http://${TS_IP}:5173${NC}"; fi
+echo -e "     Public IP              → ${CYAN}http://${PUBLIC_IP}:5173${NC}"
+echo -e "     Backend API            → ${CYAN}http://${LAN_IP:-$PUBLIC_IP}:8000${NC}"
+echo -e "     Swagger Docs           → ${CYAN}http://${LAN_IP:-$PUBLIC_IP}:8000/docs${NC}"
+echo -e "     IoT Gateway HTTP       → ${CYAN}http://${LAN_IP:-$PUBLIC_IP}:3000${NC}"
+echo -e "     IoT Gateway MQTT       → ${CYAN}mqtt://${LAN_IP:-$PUBLIC_IP}:1884${NC}"
+echo -e "     IoT Gateway CoAP       → ${CYAN}coap://${LAN_IP:-$PUBLIC_IP}:5683${NC}"
+echo -e "     AI Serving             → ${CYAN}http://${LAN_IP:-$PUBLIC_IP}:8001${NC}"
 echo ""
 echo -e "${BOLD}  🔐 Test Kirim Data ke Gateway:${NC}"
 echo -e "  ${YELLOW}  curl -X POST http://${PUBLIC_IP}:3000/api/v1/telemetry \\${NC}"
