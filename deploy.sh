@@ -133,12 +133,19 @@ PUBLIC_IP=$(curl -s --connect-timeout 3 https://api.ipify.org 2>/dev/null || ech
 # Tentukan Domain / IP yang digunakan (bisa di-pass via argumen: ./deploy.sh nama-domain.com)
 TARGET_DOMAIN="${1:-${PUBLIC_DOMAIN:-$PUBLIC_IP}}"
 
+# Pastikan direktori proyek dapat ditulis oleh user saat ini (perbaiki izin akses jika cloned sebagai root)
+if [ ! -w "$PROJECT_DIR" ]; then
+    info "Memperbaiki hak akses direktori proyek..."
+    sudo chown -R "$USER:$USER" "$PROJECT_DIR" 2>/dev/null || sudo chmod -R 777 "$PROJECT_DIR" 2>/dev/null || true
+fi
+
 # Jika file .env belum ada, buat dari .env.example
 if [ ! -f ".env" ]; then
     if [ ! -f ".env.example" ]; then
         error "File .env.example tidak ditemukan! Pastikan berada di direktori project."
     fi
-    cp .env.example .env
+    cp .env.example .env 2>/dev/null || sudo cp .env.example .env
+    sudo chown "$USER:$USER" .env 2>/dev/null || true
     info "File .env otomatis dibuat dari .env.example."
 fi
 
