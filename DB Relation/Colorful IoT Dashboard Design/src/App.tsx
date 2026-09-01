@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { C } from '@/lib/theme'
 import { Icon, Btn, Pill, StatusDot } from '@/components/Shared'
+import logoImg from '@/imports/Untitled__36_.png'
 import { AppearanceProvider, useAppearance } from '@/lib/appearance'
 import { authApi, projectsApi, type Account, type Project } from '@/lib/api'
 import DashboardView from '@/views/Dashboard'
@@ -8,21 +9,22 @@ import { DevicesView as WorkspaceDevicesView, MembersView } from '@/views/Worksp
 import { Empty } from '@/views/Dashboard'
 import SettingsView from '@/views/Settings'
 import { AimlView, AlertView, AnalyticsView, GatewayView, HomeView, SensorManagementView } from '@/views/WorkspaceOverview'
-import { LandingPage } from '@/views/OtherViews'
-import logoImg from '@/assets/logo.png'
+import {
+  LandingPage,
+} from '@/views/OtherViews'
 
 type NavKey = 'home'|'dashboard'|'sensors'|'devices'|'automations'|'users'|'gateway'|'analytics'|'aiml'|'settings'|'admin'
 
 const NAV: { key: NavKey; label: string; icon: string; badge?: string }[] = [
-  { key:'home',        label:'Home',              icon:'home'      },
-  { key:'dashboard',   label:'Dashboards',        icon:'dashboard' },
+  { key:'home',        label:'Home',            icon:'home'      },
+  { key:'dashboard',   label:'Dashboards',      icon:'dashboard' },
   { key:'sensors',     label:'Sensor Management', icon:'data'      },
   { key:'devices',     label:'Devices',           icon:'devices'   },
-  { key:'automations', label:'Alert',             icon:'alerts',   badge:'0' },
-  { key:'users',       label:'Users',             icon:'users'     },
-  { key:'gateway',     label:'Fleet & Gateway',   icon:'gateway'   },
-  { key:'analytics',   label:'Analytics',         icon:'analytics' },
-  { key:'aiml',        label:'AI / ML Builder',   icon:'brain'     },
+  { key:'automations', label:'Alert',              icon:'alerts',   badge:'0' },
+  { key:'users',       label:'Users',           icon:'users'     },
+  { key:'gateway',     label:'Fleet & Gateway', icon:'gateway'   },
+  { key:'analytics',   label:'Analytics',       icon:'analytics' },
+  { key:'aiml',        label:'AI / ML Builder', icon:'brain'     },
 ]
 
 const PAGE_TITLES: Record<NavKey, string> = {
@@ -32,16 +34,11 @@ const PAGE_TITLES: Record<NavKey, string> = {
   aiml:'AI / ML Builder', settings:'Settings', admin:'Admin Panel',
 }
 
-// ── Project selector modal ─────────────────────────────────────────────────────
-function ProjectModal({ projects, active, onSelect, onCreate, onDelete, onClose }: {
-  projects: Project[]; active: Project | null
-  onSelect: (p: Project) => void
-  onCreate: (name: string) => Promise<void>
-  onDelete: (id: number) => Promise<void>
-  onClose: () => void
-}) {
+function ProjectModal({ projects, active, onSelect, onCreate, onDelete, onClose }: { projects: Project[]; active: Project | null; onSelect: (project: Project) => void; onCreate: (name: string) => Promise<void>; onDelete: (id: number) => Promise<void>; onClose: () => void }) {
   const [input, setInput] = React.useState('')
-  const create = async () => { if (input.trim()) { await onCreate(input.trim()); setInput('') } }
+  const create = async () => {
+    if (input.trim()) { await onCreate(input.trim()); setInput('') }
+  }
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.65)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:300 }} onClick={onClose}>
       <div style={{ background: C.surface, border:`1px solid ${C.border}`, borderRadius:20, padding:28, width:460, maxWidth:'92vw', boxShadow:'0 24px 64px rgba(0,0,0,0.6)' }} onClick={e=>e.stopPropagation()}>
@@ -80,7 +77,6 @@ function ProjectModal({ projects, active, onSelect, onCreate, onDelete, onClose 
   )
 }
 
-// ── App Shell ─────────────────────────────────────────────────────────────────
 function AppShell() {
   const { settings } = useAppearance()
   const [isLoggedIn, setIsLoggedIn] = useState(authApi.hasSession())
@@ -96,12 +92,15 @@ function AppShell() {
   const [notifications, setNotifications] = useState(3)
   const [time, setTime] = useState(new Date())
   const [isDark, setIsDark] = useState(true)
-  const [logoError, setLogoError] = useState(false)
 
-  useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t) }, [])
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  // sync sidebar when settings change
   useEffect(() => { setSidebar(!settings.sidebarCollapsed) }, [settings.sidebarCollapsed])
 
-  // ── Workspace loader (restore active project per user) ────────────────────
   useEffect(() => {
     if (!isLoggedIn) return
     let cancelled = false
@@ -111,16 +110,12 @@ function AppShell() {
     Promise.all([authApi.me(), projectsApi.list()]).then(async ([me, list]) => {
       if (cancelled) return
       setAccount(me)
-      // Each user gets their own saved-project key so switching accounts is safe
-      const savedKey = `tip_last_project_${me.id}`
-      const savedId  = localStorage.getItem(savedKey)
       if (list.length === 0) {
         try {
           const created = await projectsApi.create("Project Utama")
           if (cancelled) return
           setProjects([created])
           setActiveProject(created)
-          localStorage.setItem(savedKey, String(created.id))
         } catch {
           if (cancelled) return
           setProjects([])
@@ -128,29 +123,28 @@ function AppShell() {
         }
       } else {
         setProjects(list)
-        // Restore the exact project this user was last working on
-        const restored = savedId ? (list.find(p => String(p.id) === savedId) ?? list[0]) : list[0]
-        setActiveProject(restored)
+        setActiveProject(list[0])
       }
     }).catch((error) => {
       if (cancelled) return
+      // request() removes an expired/invalid token on 401. Return to the
+      // landing page instead of rendering a fake workspace for that session.
       if (!authApi.hasSession()) {
-        setAccount(null); setProjects([]); setActiveProject(null); setIsLoggedIn(false)
+        setAccount(null)
+        setProjects([])
+        setActiveProject(null)
+        setIsLoggedIn(false)
         return
       }
       setWorkspaceError(error instanceof Error ? error.message : "Tidak dapat memuat workspace.")
-    }).finally(() => { if (!cancelled) setWorkspaceLoading(false) })
+    }).finally(() => {
+      if (!cancelled) setWorkspaceLoading(false)
+    })
 
     return () => { cancelled = true }
   }, [isLoggedIn, reloadWorkspace])
 
-  // Helper: persist active project selection per user
-  const selectProject = (p: Project) => {
-    setActiveProject(p)
-    if (account) localStorage.setItem(`tip_last_project_${account.id}`, String(p.id))
-  }
-
-  // ── Landing page ─────────────────────────────────────────────────────────
+  // ── Landing page (full screen, no shell) ──────────────────────────────────
   if (!isLoggedIn) {
     return (
       <div data-theme={isDark ? 'dark' : 'light'}>
@@ -179,48 +173,21 @@ function AppShell() {
         <div style={{ maxWidth:420, textAlign:'center', background:C.surface, border:`1px solid ${C.border}`, borderRadius:16, padding:28 }}>
           <h2 style={{ margin:'0 0 10px' }}>Workspace belum dapat dimuat</h2>
           <p style={{ color:C.muted, fontSize:13, lineHeight:1.6 }}>{workspaceError}</p>
-          <Btn variant="primary" onClick={()=>setReloadWorkspace(v=>v+1)}>Coba lagi</Btn>
+          <Btn variant="primary" onClick={()=>setReloadWorkspace(value=>value+1)}>Coba lagi</Btn>
         </div>
       </div>
     )
   }
 
-  // ── Logo component with fallback ─────────────────────────────────────────
-  const LogoEl = logoError ? (
-    <div style={{ width:32, height:32, flexShrink:0, borderRadius:8, background:`linear-gradient(135deg,${C.coral},${C.purple})`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1" fill="#fff" stroke="none"/>
-      </svg>
-    </div>
-  ) : (
-    <img src={logoImg} alt="Yugma" onError={() => setLogoError(true)}
-      style={{ width:32, height:32, objectFit:'contain', flexShrink:0, borderRadius:6 }} />
-  )
-
   // ── Dashboard shell ───────────────────────────────────────────────────────
   return (
     <div data-theme={isDark ? 'dark' : 'light'} style={{ display:'flex', height:'100vh', background: C.bg, overflow:'hidden', fontFamily:'Outfit,sans-serif', color: C.light }}>
-      {showProject && (
-        <ProjectModal
-          projects={projects}
-          active={activeProject}
-          onSelect={p => { selectProject(p); setShowProject(false) }}
-          onCreate={async name => { const p = await projectsApi.create(name); setProjects(x=>[...x,p]); selectProject(p) }}
-          onDelete={async id => {
-            await projectsApi.remove(id)
-            const remaining = projects.filter(p => p.id !== id)
-            setProjects(remaining)
-            const next = activeProject?.id === id ? (remaining[0] ?? null) : activeProject
-            if (next) selectProject(next); else setActiveProject(null)
-          }}
-          onClose={() => setShowProject(false)}
-        />
-      )}
+      {showProject && <ProjectModal projects={projects} active={activeProject} onSelect={p=>{setActiveProject(p);setShowProject(false)}} onCreate={async name=>{const p=await projectsApi.create(name);setProjects(x=>[...x,p]);setActiveProject(p)}} onDelete={async id=>{await projectsApi.remove(id); const remaining=projects.filter(p=>p.id!==id); setProjects(remaining); setActiveProject(active=>active?.id===id ? (remaining[0] ?? null) : active)}} onClose={()=>setShowProject(false)} />}
 
-      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
+      {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside style={{ width: sidebar ? 216 : 60, flexShrink:0, transition:'width .22s', background: C.bg, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ padding:'14px 14px', display:'flex', alignItems:'center', gap:10, borderBottom:`1px solid ${C.border}` }}>
-          {LogoEl}
+          <img src={logoImg} onError={(e)=>{ e.currentTarget.onerror=null; e.currentTarget.src='/logo.png' }} alt="Yugma" style={{ width:32, height:32, objectFit:'contain', flexShrink:0, borderRadius:6 }} />
           {sidebar && <div style={{ flex:1, minWidth:0 }}><div style={{ fontWeight:800, fontSize:14, color: C.light }}>Yugma</div><div style={{ fontSize:9, color: C.muted, marginTop:1 }}>IoT Platform</div></div>}
           <button onClick={()=>setSidebar(p=>!p)} style={{ background:'none', border:'none', color: C.muted, cursor:'pointer', padding:2, flexShrink:0, transition:'color .15s' }}
             onMouseEnter={e=>e.currentTarget.style.color=C.light} onMouseLeave={e=>e.currentTarget.style.color=C.muted}>
@@ -267,6 +234,7 @@ function AppShell() {
           })}
         </nav>
 
+        {/* Bottom: settings + admin */}
         <div style={{ padding:'6px', borderTop:`1px solid ${C.border}`, display:'flex', flexDirection:'column', gap:2 }}>
           <button onClick={()=>setNav('settings')} style={{
             width:'100%', display:'flex', alignItems:'center',
@@ -295,9 +263,10 @@ function AppShell() {
         </div>
       </aside>
 
-      {/* ── Main area ─────────────────────────────────────────────────────── */}
+      {/* ── Main area ────────────────────────────────────────────────────── */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <header style={{ height:62, display:'flex', alignItems:'center', gap:16, padding:'0 24px', borderBottom:`1px solid ${C.border}`, background: C.surface, flexShrink:0 }}>
+          {/* Left: page title */}
           <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
             <div>
               <div style={{ fontWeight:800, fontSize:15, color: C.light, lineHeight:1.2 }}>{PAGE_TITLES[nav]}</div>
@@ -305,6 +274,7 @@ function AppShell() {
             </div>
           </div>
 
+          {/* Center: search */}
           <div style={{ flex:1, display:'flex', justifyContent:'center' }}>
             <div style={{ width:'100%', maxWidth:420, position:'relative' }}>
               <svg style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth={2}><circle cx={11} cy={11} r={8}/><line x1={21} y1={21} x2={16.65} y2={16.65}/></svg>
@@ -314,6 +284,7 @@ function AppShell() {
             </div>
           </div>
 
+          {/* Right: controls + user */}
           <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
             <span style={{ fontFamily:'DM Mono,monospace', fontSize:11, color: C.muted }}>
               {time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
@@ -326,18 +297,16 @@ function AppShell() {
               }
             </button>
             <button onClick={()=>setNotifications(0)} style={{ position:'relative', width:34, height:34, borderRadius:'50%', background:'var(--c-btn-ghost)', border:'1px solid var(--c-border)', color: C.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}
-              onMouseEnter={e=>e.currentTarget.style.color=C.light} onMouseLeave={e=>e.currentTarget.style.color=C.muted}>
+              onMouseEnter={e=>{ e.currentTarget.style.color=C.light }}
+              onMouseLeave={e=>{ e.currentTarget.style.color=C.muted }}>
               <Icon name="bell" size={14} />
               {notifications > 0 && <span style={{ position:'absolute', top:-2, right:-2, width:14, height:14, borderRadius:'50%', background: C.coral, display:'flex', alignItems:'center', justifyContent:'center', fontSize:8, fontWeight:800, color:'#fff' }}>{notifications}</span>}
             </button>
-            <button onClick={()=>{ authApi.logout(); setIsLoggedIn(false); setActiveProject(null); setProjects([]); setAccount(null) }}
-              style={{ background:'transparent', border:`1px solid ${C.border}`, borderRadius:8, color:C.muted, cursor:'pointer', fontSize:11, padding:'7px 10px', fontFamily:'Outfit,sans-serif' }}>
+            <button onClick={()=>{ authApi.logout(); setIsLoggedIn(false); setActiveProject(null); setProjects([]); setAccount(null) }} style={{ background:'transparent', border:`1px solid ${C.border}`, borderRadius:8, color:C.muted, cursor:'pointer', fontSize:11, padding:'7px 10px', fontFamily:'Outfit,sans-serif' }}>
               Keluar
             </button>
             <div style={{ display:'flex', alignItems:'center', gap:10, paddingLeft:10, borderLeft:`1px solid ${C.border}`, cursor:'pointer' }} onClick={()=>setNav('settings')}>
-              <div style={{ width:34, height:34, borderRadius:'50%', background:`linear-gradient(135deg,${C.coral},${C.purple})`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:14, color:'#fff', flexShrink:0 }}>
-                {account?.email?.[0]?.toUpperCase() ?? 'U'}
-              </div>
+              <div style={{ width:34, height:34, borderRadius:'50%', background:`linear-gradient(135deg,${C.coral},${C.purple})`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:14, color:'#fff', flexShrink:0 }}>A</div>
               <div>
                 <div style={{ fontWeight:700, fontSize:13, color: C.light, lineHeight:1.2 }}>{account?.email?.split('@')[0] ?? 'Account'}</div>
                 <div style={{ fontSize:10, color: C.muted, lineHeight:1 }}>{account?.tier ?? 'IoT workspace'}</div>

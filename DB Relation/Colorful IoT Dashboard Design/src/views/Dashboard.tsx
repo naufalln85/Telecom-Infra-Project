@@ -21,24 +21,26 @@ function LineChart({ data, color, height = 110 }: { data: number[]; color: strin
     <div style={{ height, border: "1px dashed var(--c-border)", borderRadius: 8, display: "grid", placeItems: "center", color: C.muted, fontSize: 12 }}>No data yet</div>
   )
   const max = Math.max(...data), min = Math.min(...data), range = max - min || 1
-  const W = 400, H = height
+  const W = 1000, H = height
   const pts = data.map((v, i) => {
     const x = (i / Math.max(data.length - 1, 1)) * W
-    const y = H - ((v - min) / range) * (H - 10) - 5
+    const y = H - ((v - min) / range) * (H - 12) - 6
     return `${x},${y}`
   }).join(" ")
   const gid = `g${color.replace(/[^a-z0-9]/gi, "").slice(0, 8)}`
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height }}>
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      {data.length > 1 && <polygon points={`0,${H} ${pts} ${W},${H}`} fill={`url(#${gid})`} />}
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div style={{ width: "100%", height, position: "relative" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: "100%", display: "block" }}>
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {data.length > 1 && <polygon points={`0,${H} ${pts} ${W},${H}`} fill={`url(#${gid})`} />}
+        <polyline points={pts} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
   )
 }
 
@@ -152,13 +154,11 @@ function DimmerWidget({ color }: { color: string }) {
 interface WidgetCardProps {
   widget: Widget
   onRemove: () => void
-  onRename?: () => void
-  editMode?: boolean
   telemetryEvents: { device_id: number; payload: Record<string, any>; received_at: string; protocol: string }[]
   devices: { id: number; name: string }[]
 }
 
-function WidgetCard({ widget, onRemove, onRename, editMode, telemetryEvents, devices }: WidgetCardProps) {
+function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardProps) {
   const color = (C as any)[widget.config.colorTheme] as string ?? C.coral
   const catEntry = WIDGET_CATALOG.find(e => e.type === widget.type)
 
@@ -404,17 +404,13 @@ function WidgetCard({ widget, onRemove, onRename, editMode, telemetryEvents, dev
 
   return (
     <div style={{ gridColumn: widget.colSpan === 2 ? "span 2" : widget.colSpan === 4 ? "span 4" : "span 1" }}>
-      <Card style={{ padding: 20, minHeight: 180, height: "100%", border: editMode ? `1px solid ${C.amber}55` : undefined, transition: "border .15s" }}>
+      <Card style={{ padding: 20, minHeight: 180, height: "100%" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}18`, display: "grid", placeItems: "center", flexShrink: 0 }}>
               <Icon name={catEntry?.icon ?? "dashboard"} size={13} color={color} />
             </div>
-            <b
-              title={editMode ? "Klik untuk rename widget" : undefined}
-              onClick={editMode ? onRename : undefined}
-              style={{ fontSize: 12, color: editMode ? C.amber : C.light, cursor: editMode ? "pointer" : "default", textDecoration: editMode ? "underline dotted" : "none", transition: "color .15s" }}
-            >{widget.title}{editMode && " ✏️"}</b>
+            <b style={{ fontSize: 12, color: C.light }}>{widget.title}</b>
           </div>
           <button onClick={onRemove} title="Remove widget" style={{ border: 0, background: "transparent", color: C.muted, cursor: "pointer", padding: 2, transition: "color .12s" }}>
             <Icon name="close" size={13} />
@@ -454,9 +450,6 @@ export default function DashboardView({ project }: { project: Project | null }) 
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [showLibrary, setShowLibrary] = useState(false)
-  const [editMode, setEditMode] = useState(false)
-  const [editingWidget, setEditingWidget] = useState<string | null>(null)
-  const [editTitle, setEditTitle] = useState("")
 
   const loadTelemetry = useCallback(async () => {
     if (!project) return
@@ -540,44 +533,16 @@ export default function DashboardView({ project }: { project: Project | null }) 
     <div>
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-        <Btn variant={editMode ? "primary" : "ghost"} icon="edit" onClick={() => { setEditMode(e => !e); setEditingWidget(null) }}>
-          {editMode ? "✓ Selesai Edit" : "Edit Layout"}
-        </Btn>
+        <Btn variant="ghost" icon="edit" onClick={() => {}}>Edit Layout</Btn>
         <Btn variant="ghost" icon="plus" onClick={() => setShowLibrary(true)}>+ Add Widget</Btn>
         <span style={{ marginLeft: "auto", color: C.muted, fontSize: 11 }}>
           {widgets.length} widget{widgets.length === 1 ? "" : "s"} active
-          {editMode ? " · Mode Edit Aktif" : latestTime ? ` · Live: ${latestTime}` : ""}
+          {latestTime ? ` · Live: ${latestTime}` : ""}
         </span>
         <Btn variant="ghost" icon="refresh" onClick={loadTelemetry}>Refresh</Btn>
       </div>
 
-      {/* Edit mode: rename widget title modal */}
-      {editMode && editingWidget && (() => {
-        const w = widgets.find(x => x.id === editingWidget)
-        if (!w) return null
-        return (
-          <div onClick={() => setEditingWidget(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", backdropFilter: "blur(2px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div onClick={e => e.stopPropagation()} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 16, padding: 28, width: 360, boxShadow: "0 20px 60px rgba(0,0,0,.5)" }}>
-              <div style={{ fontWeight: 800, fontSize: 16, color: C.light, marginBottom: 14 }}>Rename Widget</div>
-              <input autoFocus value={editTitle} onChange={e => setEditTitle(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") { save(widgets.map(x => x.id === editingWidget ? { ...x, title: editTitle.trim() || x.title } : x)); setEditingWidget(null) } }}
-                style={{ width: "100%", padding: "10px 12px", background: C.surface2, border: `1px solid ${C.coral}88`, borderRadius: 9, fontSize: 14, color: C.light, outline: "none", fontFamily: "inherit", boxSizing: "border-box" as const }} />
-              <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-                <Btn variant="primary" onClick={() => { save(widgets.map(x => x.id === editingWidget ? { ...x, title: editTitle.trim() || x.title } : x)); setEditingWidget(null) }}>Simpan</Btn>
-                <Btn variant="ghost" onClick={() => setEditingWidget(null)}>Batal</Btn>
-              </div>
-            </div>
-          </div>
-        )
-      })()}
-
       {message && <p style={{ color: C.coral, fontSize: 12, marginBottom: 10 }}>{message}</p>}
-
-      {editMode && widgets.length > 0 && (
-        <div style={{ background: `${C.amber}18`, border: `1px solid ${C.amber}44`, borderRadius: 10, padding: "10px 16px", marginBottom: 14, fontSize: 12, color: C.amber }}>
-          ✏️ Mode Edit: Klik <b>judul widget</b> untuk menggantinya · Klik <b>×</b> untuk menghapus widget · Klik <b>Selesai Edit</b> bila sudah.
-        </div>
-      )}
 
       {widgets.length === 0
         ? <EmptyCanvas onAdd={() => setShowLibrary(true)} />
@@ -587,10 +552,8 @@ export default function DashboardView({ project }: { project: Project | null }) 
                 key={widget.id}
                 widget={widget}
                 onRemove={() => save(widgets.filter(w => w.id !== widget.id))}
-                onRename={editMode ? () => { setEditingWidget(widget.id); setEditTitle(widget.title) } : undefined}
                 telemetryEvents={telemetryEvents}
                 devices={devices}
-                editMode={editMode}
               />
             ))}
           </div>
