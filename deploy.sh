@@ -406,8 +406,8 @@ WATCHDOG_SERVICE_FILE="/etc/systemd/system/iot-platform-tip-watchdog.service"
 sudo tee "$WATCHDOG_SERVICE_FILE" > /dev/null << WDOG_SERVICE_EOF
 [Unit]
 Description=IoT Platform TIP — Container Health Watchdog (Auto-Recovery)
-After=iot-platform-tip.service docker.service
-Requires=iot-platform-tip.service
+After=docker.service
+Wants=docker.service
 
 [Service]
 Type=simple
