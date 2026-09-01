@@ -1,7 +1,7 @@
 import React, { useState } from "react"
 import { Icon } from "@/components/Shared"
 import { C } from "@/lib/theme"
-import logoImg from "@/imports/Untitled__36_.png"
+import { YUGMA_LOGO_B64 } from "@/imports/logo_base64"
 
 type AuthHandler = (email: string, password: string) => Promise<void>
 
@@ -30,7 +30,7 @@ function LoginModal({ onClose, onLogin, onRegister }: { onClose: () => void; onL
   const input: React.CSSProperties = { width:"100%", boxSizing:"border-box", padding:"11px 13px", color:"var(--c-text)", background:"var(--c-input-bg)", border:"1px solid var(--c-border)", borderRadius:8, outline:"none", fontFamily:"Outfit,sans-serif" }
   return <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:300, display:"grid", placeItems:"center", background:"rgba(0,0,0,.68)", backdropFilter:"blur(4px)" }}>
     <div onClick={event => event.stopPropagation()} style={{ width:390, maxWidth:"92vw", padding:28, borderRadius:18, background:"var(--c-surface)", border:"1px solid var(--c-border)" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}><img src={logoImg} alt="Yugma IoT" style={{ width:34, height:34, objectFit:"contain" }} /><div><b style={{ color:"var(--c-text)" }}>{register ? "Buat akun Yugma" : "Masuk ke Yugma"}</b><div style={{ color:"var(--c-muted)", fontSize:11 }}>Akses workspace IoT Anda</div></div></div>
+      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:18 }}><img src={YUGMA_LOGO_B64} alt="Yugma IoT" style={{ width:34, height:34, objectFit:"contain" }} /><div><b style={{ color:"var(--c-text)" }}>{register ? "Buat akun Yugma" : "Masuk ke Yugma"}</b><div style={{ color:"var(--c-muted)", fontSize:11 }}>Akses workspace IoT Anda</div></div></div>
       {error && <div style={{ color:C.coral, fontSize:12, marginBottom:12 }}>{error}</div>}
       <label style={{ color:"var(--c-muted)", fontSize:11 }}>Email<input style={{ ...input, marginTop:6, marginBottom:14 }} type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} /></label>
       <label style={{ color:"var(--c-muted)", fontSize:11 }}>Password<input style={{ ...input, marginTop:6 }} type="password" autoComplete={register ? "new-password" : "current-password"} value={password} onChange={event => setPassword(event.target.value)} onKeyDown={event => event.key === "Enter" && submit()} /></label>
@@ -57,7 +57,7 @@ export function LandingPage({ isDark, onToggleTheme, onLogin, onRegister }: { is
   return <div style={{ minHeight:"100vh", color:"var(--c-text)", background:"var(--c-bg)", fontFamily:"Outfit,sans-serif", overflowX:"hidden" }}>
     {showAuth && <LoginModal onClose={() => setShowAuth(false)} onLogin={onLogin} onRegister={onRegister} />}
     <nav style={{ position:"sticky", top:0, zIndex:100, height:64, display:"flex", alignItems:"center", padding:"0 clamp(20px,5vw,40px)", background:"var(--c-surface)", borderBottom:"1px solid var(--c-border)" }}>
-      <div style={{ display:"flex", alignItems:"center", gap:10 }}><img src={logoImg} alt="Yugma" style={{ width:32, height:32, objectFit:"contain" }} /><b style={{ fontSize:18 }}>Yugma</b><span style={{ fontSize:10, color:C.coral, fontWeight:700, textTransform:"uppercase", letterSpacing:".08em", background:`${C.coral}18`, padding:"2px 8px", borderRadius:8 }}>IoT</span></div>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}><img src={YUGMA_LOGO_B64} alt="Yugma" style={{ width:32, height:32, objectFit:"contain" }} /><b style={{ fontSize:18 }}>Yugma</b><span style={{ fontSize:10, color:C.coral, fontWeight:700, textTransform:"uppercase", letterSpacing:".08em", background:`${C.coral}18`, padding:"2px 8px", borderRadius:8 }}>IoT</span></div>
       <div style={{ display:"flex", gap:24, marginLeft:40 }}>
         {[['Features','features'], ['Docs','docs'], ['Pricing','cta']].map(([label, id]) => <button key={id} onClick={() => scrollTo(id)} style={{ padding:0, border:0, background:"transparent", color:"var(--c-muted)", cursor:"pointer", fontSize:13, fontFamily:"inherit" }}>{label}</button>)}
       </div>

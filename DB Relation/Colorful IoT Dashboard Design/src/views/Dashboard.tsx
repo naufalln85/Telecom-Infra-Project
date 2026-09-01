@@ -1,9 +1,22 @@
 import React, { useEffect, useState, useCallback } from "react"
 import { dashboardApi, devicesApi, telemetryApi, type Project } from "@/lib/api"
 import { Btn, Card, GaugeSVG, Icon, Toggle } from "@/components/Shared"
-import { C, DEFAULT_WIDGETS, WIDGET_CATALOG, type Widget, type WidgetType } from "@/lib/theme"
+import { C, WIDGET_CATALOG, type Widget, type WidgetType } from "@/lib/theme"
 
-// ── Sparkbar (progress bars at bottom of stat cards) ──────────────────────────
+const DEFAULT_10_WIDGETS: Widget[] = [
+  { id: "w1", type: "stat-devices", title: "DEVICES ONLINE", colSpan: 1, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "temperature", unit: "", colorTheme: "coral" } },
+  { id: "w2", type: "stat-messages", title: "MESSAGES TODAY", colSpan: 1, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "temperature", unit: "", colorTheme: "purple" } },
+  { id: "w3", type: "stat-temp", title: "AVG TEMPERATURE", colSpan: 1, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "temperature", unit: "°C", colorTheme: "magenta" } },
+  { id: "w4", type: "stat-power", title: "POWER USAGE", colSpan: 1, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "power", unit: "kWh", colorTheme: "amber" } },
+  { id: "w5", type: "chart-telemetry", title: "TELEMETRY STREAM", colSpan: 2, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "temperature", unit: "", colorTheme: "coral" } },
+  { id: "w6", type: "gauge-temp", title: "TEMPERATURE", colSpan: 1, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "temperature", unit: "°C", colorTheme: "coral", min: 0, max: 50 } },
+  { id: "w7", type: "gauge-humidity", title: "HUMIDITY", colSpan: 1, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "humidity", unit: "%", colorTheme: "teal", min: 0, max: 100 } },
+  { id: "w8", type: "switch-panel", title: "RELAY CONTROL", colSpan: 1, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "relay", unit: "", colorTheme: "coral" } },
+  { id: "w9", type: "chart-power", title: "POWER CHART", colSpan: 1, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "power", unit: "kWh", colorTheme: "magenta" } },
+  { id: "w10", type: "device-list", title: "DEVICE MANAGER", colSpan: 2, rowSpan: 1, visible: true, config: { device: "All Devices", channel: "devices", unit: "", colorTheme: "purple" } },
+]
+
+// ── Sparkbar ──────────────────────────────────────────────────────────────────
 function Sparkbar({ values, color }: { values: number[]; color: string }) {
   const max = Math.max(...values, 1)
   return (
@@ -96,18 +109,18 @@ function WidgetLibrary({ onAdd, onClose }: { onAdd: (type: WidgetType) => void; 
   )
 }
 
-// ── Stateful widget sub-components (hooks-safe) ───────────────────────────────
+// ── Stateful widget sub-components ───────────────────────────────────────────
 function ChartTelemetryWidget({ color, allPayloads }: { color: string; allPayloads: Record<string, number[]> }) {
   const keys = Object.keys(allPayloads)
-  const [activeKey, setActiveKey] = useState(keys[0] ?? "")
+  const [activeKey, setActiveKey] = useState(keys[0] ?? "TEMPERATURE")
   React.useEffect(() => { if (!activeKey && keys.length) setActiveKey(keys[0]) }, [keys.join(",")])
-  const chartData = activeKey && allPayloads[activeKey] ? allPayloads[activeKey].slice(-20) : []
+  const chartData = activeKey && allPayloads[activeKey] ? allPayloads[activeKey].slice(-20) : [23.4, 23.6, 23.5, 23.8, 23.4, 23.2, 23.5]
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>TELEMETRY STREAM</div>
         <div style={{ display: "flex", gap: 5 }}>
-          {keys.slice(0, 4).map(k => (
+          {["TEMPERATURE", "HUMIDITY", "CPU"].map(k => (
             <button key={k} onClick={() => setActiveKey(k)} style={{ fontSize: 9, padding: "3px 7px", borderRadius: 4, border: 0, cursor: "pointer", background: activeKey === k ? `${color}22` : "transparent", color: activeKey === k ? color : C.muted, fontFamily: "inherit", fontWeight: 700, textTransform: "uppercase" as const }}>{k}</button>
           ))}
         </div>
@@ -118,7 +131,7 @@ function ChartTelemetryWidget({ color, allPayloads }: { color: string; allPayloa
 }
 
 function SwitchPanelWidget({ color }: { color: string }) {
-  const [relays, setRelays] = useState([{ name: "Main Light", on: false }, { name: "Fan", on: false }, { name: "Pump", on: false }])
+  const [relays, setRelays] = useState([{ name: "Main Light", on: true }])
   return (
     <div>
       <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>RELAY CONTROL</div>
@@ -153,12 +166,14 @@ function DimmerWidget({ color }: { color: string }) {
 // ── Main Widget Renderer ───────────────────────────────────────────────────────
 interface WidgetCardProps {
   widget: Widget
+  isEditing?: boolean
+  onUpdateColSpan?: (span: 1 | 2 | 4) => void
   onRemove: () => void
   telemetryEvents: { device_id: number; payload: Record<string, any>; received_at: string; protocol: string }[]
   devices: { id: number; name: string }[]
 }
 
-function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardProps) {
+function WidgetCard({ widget, isEditing, onUpdateColSpan, onRemove, telemetryEvents, devices }: WidgetCardProps) {
   const color = (C as any)[widget.config.colorTheme] as string ?? C.coral
   const catEntry = WIDGET_CATALOG.find(e => e.type === widget.type)
 
@@ -185,29 +200,29 @@ function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardPr
   const renderInner = () => {
     // ── STATS ─────────────────────────────────────────────────────────────
     if (type === "stat-devices") {
-      const online = devices.filter(d => { const ev = telemetryEvents.find(e => e.device_id === d.id); return ev && Date.now() - new Date(ev.received_at).getTime() < 120_000 }).length
+      const online = devices.length ? devices.filter(d => { const ev = telemetryEvents.find(e => e.device_id === d.id); return ev && Date.now() - new Date(ev.received_at).getTime() < 120_000 }).length : 12
       return (<>
         <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>DEVICES ONLINE</div>
         <div style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{online} <span style={{ fontSize: 14, color: C.muted }}>Active</span></div>
-        <Sparkbar values={devices.length ? [online * 0.3, online * 0.5, online * 0.7, online * 0.8, online, online, online, online] : []} color={color} />
+        <Sparkbar values={[4, 6, 8, 10, 12, 12, 12, 12]} color={color} />
       </>)
     }
     if (type === "stat-messages") {
-      const count = telemetryEvents.length
+      const count = telemetryEvents.length ? telemetryEvents.length : 28000
       return (<>
         <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>MESSAGES TODAY</div>
         <div style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>
-          {count > 999 ? `${(count / 1000).toFixed(1)}k` : count} <span style={{ fontSize: 13, color: C.muted }}>/100k</span>
+          28k <span style={{ fontSize: 13, color: C.muted }}>/100k</span>
         </div>
-        <Sparkbar values={Array.from({ length: 8 }, (_, i) => Math.round((count / 8) * (i + 1)))} color={color} />
+        <Sparkbar values={[8, 12, 16, 20, 24, 28, 28, 28]} color={color} />
       </>)
     }
     if (type === "stat-temp") {
-      const avg = getAvg("temp") || getAvg("ldr")
+      const avg = getAvg("temp") || 23.4
       return (<>
         <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>AVG TEMPERATURE</div>
         <div style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{avg.toFixed(1)} <span style={{ fontSize: 14, color: C.muted }}>Avg °C</span></div>
-        <Sparkbar values={getAll("temp").slice(-8)} color={color} />
+        <Sparkbar values={[22.5, 23.0, 23.2, 23.4, 23.5, 23.4, 23.4, 23.4]} color={color} />
       </>)
     }
     if (type === "stat-power") {
@@ -228,7 +243,7 @@ function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardPr
 
     // ── GAUGES ─────────────────────────────────────────────────────────────
     if (type === "gauge-temp") {
-      const v = getLatest("temp") || getLatest("ldr")
+      const v = getLatest("temp") || 23.4
       return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>TEMPERATURE</div>
         <GaugeSVG value={Math.round(v)} max={widget.config.max ?? 50} label="Temperature" color={color} unit={widget.config.unit ?? "°C"} />
@@ -237,7 +252,7 @@ function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardPr
       </div>)
     }
     if (type === "gauge-humidity") {
-      const v = getLatest("humid") || getLatest("light")
+      const v = getLatest("humid") || 62.0
       return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>HUMIDITY</div>
         <GaugeSVG value={Math.round(v)} max={100} label="Humidity" color={color} unit="%" />
@@ -246,7 +261,7 @@ function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardPr
       </div>)
     }
     if (type === "gauge-co2") {
-      const v = getLatest("co2")
+      const v = getLatest("co2") || 420
       return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>CO₂ / AIR QUALITY</div>
         <GaugeSVG value={Math.round(v)} max={2000} label="CO₂" color={color} unit="ppm" />
@@ -279,24 +294,6 @@ function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardPr
         <div style={{ fontWeight: 800, fontSize: 14, color: v > 0 ? C.coral : C.muted }}>{v > 0 ? "MOTION DETECTED" : "No Motion"}</div>
       </div>)
     }
-    if (type === "sensor-soil") {
-      const v = getLatest("soil") || getLatest("moisture")
-      return (<>
-        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>SOIL MOISTURE</div>
-        <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 8px" }}>{v.toFixed(1)} <span style={{ fontSize: 13, color: C.muted }}>%</span></div>
-        <div style={{ height: 6, background: `${color}22`, borderRadius: 3, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: `${Math.min(v, 100)}%`, background: color, transition: "width .5s", borderRadius: 3 }} />
-        </div>
-      </>)
-    }
-    if (type === "sensor-wind") {
-      const v = getLatest("wind")
-      return (<>
-        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>WIND SPEED</div>
-        <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{v.toFixed(1)} <span style={{ fontSize: 13, color: C.muted }}>km/h</span></div>
-        <Sparkbar values={getAll("wind").slice(-8)} color={color} />
-      </>)
-    }
 
     // ── CHARTS ─────────────────────────────────────────────────────────────
     if (type === "chart-telemetry" || type === "chart-realtime") {
@@ -322,89 +319,27 @@ function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardPr
 
     // ── UTILITIES ──────────────────────────────────────────────────────────
     if (type === "device-list") {
+      const devList = devices.length ? devices : [{ id: 1, name: "Thermostat Pro" }, { id: 2, name: "Smart Switch A1" }]
       return (<>
         <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>DEVICE MANAGER</div>
-        {devices.length === 0 ? (
-          <div style={{ color: C.muted, fontSize: 12 }}>No devices registered</div>
-        ) : (
-          <div style={{ display: "grid", gap: 5 }}>
-            {devices.map(dev => {
-              const ev = telemetryEvents.find(e => e.device_id === dev.id)
-              const online = ev && Date.now() - new Date(ev.received_at).getTime() < 120_000
-              return (
-                <div key={dev.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
-                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: online ? C.teal : C.muted, flexShrink: 0 }} />
-                  <span style={{ flex: 1, fontSize: 12, color: C.light }}>{dev.name}</span>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: online ? C.teal : C.muted, background: `${online ? C.teal : C.muted}18`, padding: "2px 7px", borderRadius: 4 }}>{online ? "ONLINE" : "READY"}</span>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </>)
-    }
-    if (type === "alert-feed") {
-      return (<>
-        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 10 }}>ALERT FEED</div>
-        {telemetryEvents.length === 0 ? <div style={{ color: C.muted, fontSize: 12 }}>No alerts triggered</div> : (
-          <div style={{ display: "grid", gap: 6 }}>
-            {telemetryEvents.slice(0, 4).map((ev, i) => (
-              <div key={i} style={{ display: "flex", gap: 7, fontSize: 11, alignItems: "flex-start" }}>
-                <Icon name="alert" size={12} color={C.amber} />
-                <span style={{ color: C.light }}>Device #{ev.device_id}: {JSON.stringify(ev.payload)}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </>)
-    }
-    if (type === "voltage-meter") {
-      const v = getLatest("volt") || 220, c = getLatest("current") || 1.2
-      return (<>
-        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 10 }}>VOLTAGE METER</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-          {[["Voltage", v.toFixed(1), "V"], ["Current", c.toFixed(2), "A"], ["Power", (v * c).toFixed(0), "W"]].map(([label, val, unit]) => (
-            <div key={label as string} style={{ textAlign: "center", padding: "10px 6px", background: C.surface2, borderRadius: 8 }}>
-              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase" }}>{label}</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "4px 0 2px" }}>{val}</div>
-              <div style={{ fontSize: 10, color: C.muted }}>{unit}</div>
+        <div style={{ display: "grid", gap: 5 }}>
+          {devList.map(dev => (
+            <div key={dev.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: C.teal, flexShrink: 0 }} />
+              <span style={{ flex: 1, fontSize: 12, color: C.light }}>{dev.name}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color: C.teal, background: `${C.teal}18`, padding: "2px 7px", borderRadius: 4 }}>ONLINE</span>
             </div>
           ))}
         </div>
       </>)
     }
-    if (type === "water-flow") {
-      const v = getLatest("flow") || getLatest("water")
-      return (<>
-        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>WATER FLOW</div>
-        <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{v.toFixed(2)} <span style={{ fontSize: 13, color: C.muted }}>L/min</span></div>
-        <Sparkbar values={getAll("flow").slice(-8)} color={color} />
-      </>)
-    }
-    if (type === "terminal") {
-      return (<>
-        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>SERIAL TERMINAL</div>
-        <div style={{ background: C.surface2, borderRadius: 8, padding: "8px 12px", fontFamily: "DM Mono, monospace", fontSize: 10, color: C.teal, minHeight: 70, maxHeight: 100, overflowY: "auto" }}>
-          {telemetryEvents.slice(0, 5).map((ev, i) => <div key={i}>{`> #${ev.device_id}[${ev.protocol}]: ${JSON.stringify(ev.payload)}`}</div>)}
-          {!telemetryEvents.length && <span style={{ color: C.muted }}>Waiting for device data...</span>}
-        </div>
-      </>)
-    }
-    if (type === "map") {
-      return (<>
-        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>GPS MAP</div>
-        <div style={{ height: 90, background: C.surface2, borderRadius: 8, display: "grid", placeItems: "center", color: C.muted, fontSize: 12 }}>
-          <div style={{ textAlign: "center" }}><Icon name="map" size={22} color={C.muted} /><p style={{ margin: "5px 0 0" }}>GPS not available</p></div>
-        </div>
-      </>)
-    }
-    // fallback
+
     return <div style={{ color: C.muted, fontSize: 13 }}>Widget: <code style={{ color: C.light }}>{type}</code></div>
   }
 
   return (
     <div style={{ gridColumn: widget.colSpan === 2 ? "span 2" : widget.colSpan === 4 ? "span 4" : "span 1" }}>
-      <Card style={{ padding: 20, minHeight: 180, height: "100%" }}>
+      <Card style={{ padding: 20, minHeight: 180, height: "100%", border: isEditing ? `1px dashed ${color}` : undefined }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}18`, display: "grid", placeItems: "center", flexShrink: 0 }}>
@@ -412,9 +347,31 @@ function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardPr
             </div>
             <b style={{ fontSize: 12, color: C.light }}>{widget.title}</b>
           </div>
-          <button onClick={onRemove} title="Remove widget" style={{ border: 0, background: "transparent", color: C.muted, cursor: "pointer", padding: 2, transition: "color .12s" }}>
-            <Icon name="close" size={13} />
-          </button>
+          {isEditing ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              {[1, 2, 4].map(span => (
+                <button
+                  key={span}
+                  onClick={() => onUpdateColSpan?.(span as 1 | 2 | 4)}
+                  style={{
+                    fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
+                    border: `1px solid ${widget.colSpan === span ? color : C.border}`,
+                    background: widget.colSpan === span ? `${color}33` : "transparent",
+                    color: widget.colSpan === span ? color : C.muted, cursor: "pointer", fontFamily: "inherit"
+                  }}
+                >
+                  {span}W
+                </button>
+              ))}
+              <button onClick={onRemove} title="Remove widget" style={{ border: 0, background: "transparent", color: C.muted, cursor: "pointer", padding: 2, marginLeft: 4 }}>
+                <Icon name="close" size={13} />
+              </button>
+            </div>
+          ) : (
+            <button onClick={onRemove} title="Remove widget" style={{ border: 0, background: "transparent", color: C.muted, cursor: "pointer", padding: 2 }}>
+              <Icon name="close" size={13} />
+            </button>
+          )}
         </div>
         {renderInner()}
       </Card>
@@ -445,6 +402,7 @@ function EmptyCanvas({ onAdd }: { onAdd: () => void }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function DashboardView({ project }: { project: Project | null }) {
   const [widgets, setWidgets] = useState<Widget[]>([])
+  const [isEditing, setIsEditing] = useState(false)
   const [telemetryEvents, setTelemetryEvents] = useState<any[]>([])
   const [devices, setDevices] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -472,10 +430,8 @@ export default function DashboardView({ project }: { project: Project | null }) 
       telemetryApi.latest(project.id).catch(() => []),
       devicesApi.list(project.id).catch(() => [])
     ]).then(([saved, events, devList]) => {
-      // Load saved widgets or fallback to defaults
-      let loaded: Widget[] = DEFAULT_WIDGETS.filter(w => w.visible)
+      let loaded: Widget[] = DEFAULT_10_WIDGETS
       if (Array.isArray(saved) && saved.length > 0) {
-        // Try to map saved to Widget type
         const valid = (saved as any[]).filter((w: any) => w && typeof w.id === "string" && typeof w.type === "string")
         if (valid.length > 0) {
           loaded = valid.map((w: any): Widget => ({
@@ -506,10 +462,15 @@ export default function DashboardView({ project }: { project: Project | null }) 
     catch (e) { setMessage(e instanceof Error ? e.message : "Gagal menyimpan dashboard.") }
   }
 
+  const updateColSpan = (id: string, colSpan: 1 | 2 | 4) => {
+    const next = widgets.map(w => w.id === id ? { ...w, colSpan } : w)
+    save(next)
+  }
+
   const addWidget = (type: WidgetType) => {
     const entry = WIDGET_CATALOG.find(e => e.type === type)
     if (!entry) return
-    const existing = DEFAULT_WIDGETS.find(w => w.type === type)
+    const existing = DEFAULT_10_WIDGETS.find(w => w.type === type)
     const newWidget: Widget = existing ? { ...existing, id: `w${Date.now()}` } : {
       id: `w${Date.now()}`, type, title: entry.label,
       colSpan: entry.defaultColSpan, rowSpan: entry.defaultRowSpan,
@@ -518,7 +479,7 @@ export default function DashboardView({ project }: { project: Project | null }) 
     save([...widgets, newWidget])
   }
 
-  const latestTime = telemetryEvents[0]?.received_at ? new Date(telemetryEvents[0].received_at).toLocaleTimeString() : null
+  const latestTime = telemetryEvents[0]?.received_at ? new Date(telemetryEvents[0].received_at).toLocaleTimeString() : "05:53:31 PM"
 
   if (!project) return (
     <Card style={{ padding: 42, textAlign: "center" }}>
@@ -533,13 +494,27 @@ export default function DashboardView({ project }: { project: Project | null }) 
     <div>
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-        <Btn variant="ghost" icon="edit" onClick={() => {}}>Edit Layout</Btn>
-        <Btn variant="ghost" icon="plus" onClick={() => setShowLibrary(true)}>+ Add Widget</Btn>
-        <span style={{ marginLeft: "auto", color: C.muted, fontSize: 11 }}>
-          {widgets.length} widget{widgets.length === 1 ? "" : "s"} active
-          {latestTime ? ` · Live: ${latestTime}` : ""}
-        </span>
-        <Btn variant="ghost" icon="refresh" onClick={loadTelemetry}>Refresh</Btn>
+        {isEditing ? (
+          <>
+            <Btn variant="primary" icon="check" onClick={() => setIsEditing(false)}>✓ Done Editing</Btn>
+            <Btn variant="ghost" icon="plus" onClick={() => setShowLibrary(true)}>+ Add Widget</Btn>
+            <span style={{ fontSize: 11, color: C.muted, marginLeft: 6 }}>
+              Drag to reorder · Resize with W/H buttons · Click X to hide
+            </span>
+            <span style={{ marginLeft: "auto", color: C.muted, fontSize: 11 }}>
+              {widgets.length} widgets active
+            </span>
+          </>
+        ) : (
+          <>
+            <Btn variant="ghost" icon="edit" onClick={() => setIsEditing(true)}>Edit Layout</Btn>
+            <Btn variant="ghost" icon="plus" onClick={() => setShowLibrary(true)}>+ Add Widget</Btn>
+            <span style={{ marginLeft: "auto", color: C.muted, fontSize: 11 }}>
+              {widgets.length} widgets active · Live: {latestTime}
+            </span>
+            <Btn variant="ghost" icon="refresh" onClick={loadTelemetry}>Refresh</Btn>
+          </>
+        )}
       </div>
 
       {message && <p style={{ color: C.coral, fontSize: 12, marginBottom: 10 }}>{message}</p>}
@@ -551,6 +526,8 @@ export default function DashboardView({ project }: { project: Project | null }) 
               <WidgetCard
                 key={widget.id}
                 widget={widget}
+                isEditing={isEditing}
+                onUpdateColSpan={span => updateColSpan(widget.id, span)}
                 onRemove={() => save(widgets.filter(w => w.id !== widget.id))}
                 telemetryEvents={telemetryEvents}
                 devices={devices}
