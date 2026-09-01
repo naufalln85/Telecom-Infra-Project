@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react"
-import { dashboardApi, type Project } from "@/lib/api"
+import { dashboardApi, telemetryApi, type Project } from "@/lib/api"
 import { Btn, Card, Icon } from "@/components/Shared"
 import { C, WIDGET_CATALOG } from "@/lib/theme"
 

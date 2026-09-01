@@ -1,7 +1,7 @@
 import React from "react"
 import { Btn, Card, Icon, PageHeader } from "@/components/Shared"
 import { C } from "@/lib/theme"
-import type { Project } from "@/lib/api"
+import { devicesApi, channelsApi, telemetryApi, type Project } from "@/lib/api"
 
 type Navigate = (view: "dashboard" | "devices" | "sensors" | "automations" | "gateway" | "analytics" | "aiml") => void
 
@@ -125,24 +125,226 @@ export function SensorManagementView({ project, onNavigate }: { project: Project
 }
 
 export function GatewayView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {
-  const protocols = [["HTTP Protocol", "3000", C.coral], ["MQTT Protocol", "1884", C.purple], ["CoAP Protocol", "5683", C.magenta]] as const
-  return <div><PageHeader icon="gateway" title="Gateway Monitor" sub="Multi-protocol ingestion: HTTP · MQTT · CoAP" action={<Btn icon="refresh" onClick={() => onNavigate("devices")}>Hubungkan perangkat</Btn>} />
-    <div style={{ display:"grid", gridTemplateColumns:"repeat(3, minmax(0, 1fr))", gap:18 }}>{protocols.map(([name, port, color]) => <Card key={name} style={{ padding:30, minHeight:210 }}><div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}><b style={{ color:C.light, fontSize:17 }}>{name}</b><span style={{ color:C.muted, fontSize:11 }}>Menunggu data</span></div><div style={{ fontSize:48, color, fontWeight:800, margin:"32px 0 24px", fontFamily:"DM Mono,monospace" }}>0</div><div style={{ display:"flex", justifyContent:"space-between", color:C.muted, fontSize:12 }}><span>Port</span><b style={{ color:C.light }}>{port}</b></div></Card>)}</div>
-    <Card style={{ padding:28, marginTop:20, display:"grid", gridTemplateColumns:"repeat(5, 1fr)", textAlign:"center" }}>{["Total pesan", "Errors", "HTTP", "MQTT", "CoAP"].map(label => <div key={label}><div style={{ color:C.muted, fontSize:11, fontWeight:700, textTransform:"uppercase" }}>{label}</div><div style={{ fontSize:32, fontWeight:800, color:C.light, marginTop:12 }}>0</div></div>)}</Card>
-  </div>
+  const [totalMessages, setTotalMessages] = React.useState({ http: 0, mqtt: 0, coap: 0, errors: 0 })
+
+  React.useEffect(() => {
+    if (!project) return
+    telemetryApi.latest(project.id).then(events => {
+      const http = events.filter((e: any) => e.protocol === "HTTP").length
+      const mqtt = events.filter((e: any) => e.protocol === "MQTT").length
+      const coap = events.filter((e: any) => e.protocol === "COAP").length
+      setTotalMessages({ http, mqtt, coap, errors: 0 })
+    }).catch(() => {})
+  }, [project?.id])
+
+  const protocols: [string, string, string, number][] = [
+    ["HTTP Protocol", "3000", C.coral, totalMessages.http],
+    ["MQTT Protocol", "1884", C.purple, totalMessages.mqtt],
+    ["CoAP Protocol", "5683", C.magenta, totalMessages.coap],
+  ]
+  const total = totalMessages.http + totalMessages.mqtt + totalMessages.coap
+
+  return (
+    <div>
+      <PageHeader
+        icon="gateway"
+        title="Gateway Monitor"
+        sub="Multi-protocol ingestion: HTTP · MQTT · CoAP"
+        action={<Btn icon="devices" onClick={() => onNavigate("devices")}>Kelola Perangkat</Btn>}
+      />
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3, minmax(0, 1fr))", gap:18 }}>
+        {protocols.map(([name, port, color, count]) => (
+          <Card key={name} style={{ padding:30, minHeight:210 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <b style={{ color:C.light, fontSize:17 }}>{name}</b>
+              <span style={{ fontSize:10, color: count > 0 ? C.teal : C.muted, fontWeight:700 }}>{count > 0 ? "✅ AKTIF" : "Menunggu data"}</span>
+            </div>
+            <div style={{ fontSize:48, color, fontWeight:800, margin:"32px 0 24px", fontFamily:"DM Mono,monospace" }}>{count}</div>
+            <div style={{ display:"flex", justifyContent:"space-between", color:C.muted, fontSize:12 }}>
+              <span>Port</span><b style={{ color:C.light }}>{port}</b>
+            </div>
+          </Card>
+        ))}
+      </div>
+      <Card style={{ padding:28, marginTop:20, display:"grid", gridTemplateColumns:"repeat(5, 1fr)", textAlign:"center" }}>
+        {["Total pesan", "Errors", "HTTP", "MQTT", "CoAP"].map((label, i) => (
+          <div key={label}>
+            <div style={{ color:C.muted, fontSize:11, fontWeight:700, textTransform:"uppercase" }}>{label}</div>
+            <div style={{ fontSize:32, fontWeight:800, color:C.light, marginTop:12 }}>
+              {[total, totalMessages.errors, totalMessages.http, totalMessages.mqtt, totalMessages.coap][i]}
+            </div>
+          </div>
+        ))}
+      </Card>
+    </div>
+  )
 }
 
 export function AnalyticsView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {
-  return <div><PageHeader icon="analytics" title="Telemetry Analytics & Export" sub="Visualisasi data dan laporan performa perangkat." action={<Btn icon="download" onClick={() => onNavigate("devices")}>Export JSON / CSV</Btn>} />
-    <Card style={{ minHeight:390, padding:28 }}><div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}><b style={{ color:C.light, fontSize:17 }}>Real-time Telemetry Performance</b><div style={{ display:"flex", gap:8 }}>{["1h", "24h", "7d", "30d"].map(range => <span key={range} style={{ fontSize:11, color:C.muted, padding:"6px 9px", background:range === "24h" ? `${C.coral}22` : "transparent", borderRadius:6 }}>{range}</span>)}</div></div><div style={{ height:290, border:"1px dashed var(--c-border)", borderRadius:12, marginTop:24, display:"grid", placeItems:"center", color:C.muted, textAlign:"center", padding:30 }}><div><Icon name="analytics" size={30} color={C.muted} /><p style={{ margin:"12px 0 0" }}>Grafik akan muncul setelah telemetry pertama diterima.</p></div></div></Card>
-  </div>
+  const [events, setEvents] = React.useState<any[]>([])
+  const [range, setRange] = React.useState("24h")
+
+  React.useEffect(() => {
+    if (!project) return
+    telemetryApi.latest(project.id).then(setEvents).catch(() => {})
+  }, [project?.id])
+
+  return (
+    <div>
+      <PageHeader
+        icon="analytics"
+        title="Telemetry Analytics & Export"
+        sub="Visualisasi data dan laporan performa perangkat."
+        action={
+          <div style={{ display:"flex", gap:8 }}>
+            <Btn icon="devices" onClick={() => onNavigate("devices")}>Kelola Perangkat</Btn>
+            <Btn icon="download" onClick={() => {
+              if (!events.length) return
+              const blob = new Blob([JSON.stringify(events, null, 2)], { type: "application/json" })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement("a")
+              a.href = url; a.download = "telemetry_export.json"; a.click()
+              URL.revokeObjectURL(url)
+            }}>Export JSON</Btn>
+          </div>
+        }
+      />
+      <Card style={{ minHeight:390, padding:28 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <b style={{ color:C.light, fontSize:17 }}>Real-time Telemetry Performance</b>
+          <div style={{ display:"flex", gap:8 }}>
+            {["1h", "24h", "7d", "30d"].map(r => (
+              <button key={r} onClick={() => setRange(r)} style={{ fontSize:11, color: range === r ? C.coral : C.muted, padding:"6px 9px", background: range === r ? `${C.coral}22` : "transparent", borderRadius:6, border:0, cursor:"pointer" }}>{r}</button>
+            ))}
+          </div>
+        </div>
+        {events.length > 0 ? (
+          <div style={{ marginTop:24 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:12, marginBottom:18 }}>
+              {["Total Events", "Devices Active", "Last Received"].map((label, i) => (
+                <Card key={label} style={{ padding:16, textAlign:"center" }}>
+                  <div style={{ color:C.muted, fontSize:10, fontWeight:700, textTransform:"uppercase" }}>{label}</div>
+                  <div style={{ fontSize:26, fontWeight:800, color:C.coral, marginTop:8, fontFamily:"DM Mono,monospace" }}>
+                    {i === 0 ? events.length
+                      : i === 1 ? new Set(events.map((e: any) => e.device_id)).size
+                      : new Date(events[0]?.received_at ?? Date.now()).toLocaleTimeString()}
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <div style={{ border:"1px solid var(--c-border)", borderRadius:12, overflow:"hidden" }}>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 2fr", padding:"10px 16px", background:C.surface2, fontSize:10, fontWeight:700, color:C.muted, textTransform:"uppercase" }}>
+                {["Device ID", "Protocol", "Waktu", "Payload"].map(h => <div key={h}>{h}</div>)}
+              </div>
+              {events.slice(0, 10).map((ev: any, i: number) => (
+                <div key={i} style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 2fr", padding:"10px 16px", borderTop:"1px solid var(--c-border)", fontSize:12 }}>
+                  <div style={{ color:C.muted }}>#{ev.device_id}</div>
+                  <div style={{ color: ev.protocol === "HTTP" ? C.coral : ev.protocol === "MQTT" ? C.purple : C.magenta, fontWeight:700 }}>{ev.protocol}</div>
+                  <div style={{ color:C.muted }}>{new Date(ev.received_at).toLocaleTimeString()}</div>
+                  <div style={{ color:C.light, fontFamily:"DM Mono,monospace", fontSize:11, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{JSON.stringify(ev.payload)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div style={{ height:290, border:"1px dashed var(--c-border)", borderRadius:12, marginTop:24, display:"grid", placeItems:"center", color:C.muted, textAlign:"center", padding:30 }}>
+            <div>
+              <Icon name="analytics" size={30} color={C.muted} />
+              <p style={{ margin:"12px 0 0" }}>Grafik akan muncul setelah telemetry pertama diterima.</p>
+              <Btn icon="devices" onClick={() => onNavigate("devices")} style={{ marginTop:14 }}>Tambah Perangkat IoT</Btn>
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  )
 }
 
 export function AlertView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {
-  return <div><PageHeader icon="alerts" title="Alert Engine" sub="Buat aturan ambang batas dan pantau riwayat notifikasi." />
-    <Card style={{ padding:28, marginBottom:20, border:`1px solid ${C.coral}44` }}><div style={{ display:"flex", alignItems:"center", gap:12 }}><div style={{ width:42, height:42, display:"grid", placeItems:"center", borderRadius:12, background:`${C.coral}18` }}><Icon name="plus" size={20} color={C.coral} /></div><div><b style={{ color:C.light, fontSize:17 }}>Quick Threshold Builder</b><div style={{ color:C.muted, fontSize:12, marginTop:4 }}>Pilih perangkat dan channel sensor untuk membuat aturan otomatis.</div></div></div><div style={{ marginTop:20 }}><Btn icon="plus" onClick={() => onNavigate("devices")}>Tambahkan perangkat terlebih dahulu</Btn></div></Card>
-    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}><EmptyPanel icon="shield" title="Belum ada active rules" text="Aturan akan tersedia setelah perangkat dan channel sensor ditambahkan." /><EmptyPanel icon="bell" title="Belum ada alert history" text="Notifikasi yang dipicu perangkat akan muncul di sini." /></div>
-  </div>
+  const [devices, setDevices] = React.useState<any[]>([])
+  const [alertHistory, setAlertHistory] = React.useState<{time: string; device: string; channel: string; value: number}[]>([])
+
+  React.useEffect(() => {
+    if (!project) return
+    Promise.all([
+      devicesApi.list(project.id),
+      telemetryApi.latest(project.id)
+    ]).then(([devList, events]) => {
+      setDevices(devList)
+      // Build alert history from events where values may be anomalous
+      const history = events.flatMap((ev: any) => {
+        const dev = devList.find((d: any) => d.id === ev.device_id)
+        if (!dev || !ev.payload) return []
+        return Object.entries(ev.payload).map(([ch, val]) => ({
+          time: new Date(ev.received_at).toLocaleTimeString(),
+          device: dev.name,
+          channel: ch,
+          value: typeof val === "number" ? val : 0
+        }))
+      }).slice(0, 5)
+      setAlertHistory(history)
+    }).catch(() => {})
+  }, [project?.id])
+
+  return (
+    <div>
+      <PageHeader
+        icon="alerts"
+        title="Alert Engine"
+        sub="Buat aturan ambang batas dan pantau riwayat notifikasi."
+        action={<Btn icon="devices" onClick={() => onNavigate("devices")}>Kelola Perangkat</Btn>}
+      />
+      <Card style={{ padding:28, marginBottom:20, border:`1px solid ${C.coral}44` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{ width:42, height:42, display:"grid", placeItems:"center", borderRadius:12, background:`${C.coral}18` }}>
+            <Icon name="alerts" size={20} color={C.coral} />
+          </div>
+          <div>
+            <b style={{ color:C.light, fontSize:17 }}>Quick Threshold Builder</b>
+            <div style={{ color:C.muted, fontSize:12, marginTop:4 }}>Pilih perangkat dan channel sensor untuk membuat aturan otomatis.</div>
+          </div>
+        </div>
+        {devices.length > 0 ? (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:10, marginTop:20 }}>
+            {devices.map((dev: any) => (
+              <button key={dev.id} onClick={() => onNavigate("sensors")} style={{ padding:"12px 16px", borderRadius:10, border:`1px solid ${C.border}`, background:C.surface2, color:C.light, cursor:"pointer", textAlign:"left", fontFamily:"inherit" }}>
+                <div style={{ fontSize:12, fontWeight:700 }}>{dev.name}</div>
+                <div style={{ fontSize:10, color:C.muted, marginTop:4 }}>Klik untuk buat alert rule</div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div style={{ marginTop:20 }}>
+            <Btn icon="plus" onClick={() => onNavigate("devices")}>Tambahkan perangkat terlebih dahulu</Btn>
+          </div>
+        )}
+      </Card>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20 }}>
+        <EmptyPanel icon="shield" title="Belum ada active rules" text="Aturan akan tersedia setelah perangkat dan channel sensor ditambahkan." action={<Btn icon="sensors" onClick={() => onNavigate("sensors")}>Lihat Sensor</Btn>} />
+        <Card style={{ padding:22 }}>
+          <b style={{ color:C.light, fontSize:16 }}>Alert History</b>
+          {alertHistory.length > 0 ? (
+            <div style={{ marginTop:14, display:"grid", gap:8 }}>
+              {alertHistory.map((item, i) => (
+                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", borderRadius:8, background:C.surface2 }}>
+                  <div>
+                    <b style={{ color:C.light, fontSize:12 }}>{item.device}</b>
+                    <span style={{ color:C.muted, fontSize:11 }}> · {item.channel}</span>
+                  </div>
+                  <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                    <span style={{ color:C.coral, fontWeight:700, fontFamily:"DM Mono,monospace" }}>{item.value}</span>
+                    <span style={{ color:C.muted, fontSize:10 }}>{item.time}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ marginTop:16, color:C.muted, fontSize:12 }}>Notifikasi yang dipicu perangkat akan muncul di sini.</div>
+          )}
+        </Card>
+      </div>
+    </div>
+  )
 }
 
 export function AimlView({ onNavigate }: { onNavigate: Navigate }) {
