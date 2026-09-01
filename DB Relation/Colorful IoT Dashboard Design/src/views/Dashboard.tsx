@@ -168,15 +168,17 @@ interface WidgetCardProps {
   widget: Widget
   index: number
   isEditing?: boolean
+  isDragOver?: boolean
   onUpdateColSpan?: (span: 1 | 2 | 4) => void
   onRemove: () => void
-  onDrop?: (fromIndex: number, toIndex: number) => void
+  onDragStart?: (e: React.DragEvent, index: number) => void
+  onDragOver?: (e: React.DragEvent, index: number) => void
+  onDrop?: (e: React.DragEvent, index: number) => void
   telemetryEvents: { device_id: number; payload: Record<string, any>; received_at: string; protocol: string }[]
   devices: { id: number; name: string }[]
 }
 
-function WidgetCard({ widget, index, isEditing, onUpdateColSpan, onRemove, onDrop, telemetryEvents, devices }: WidgetCardProps) {
-  const [isDraggingOver, setIsDraggingOver] = useState(false)
+function WidgetCard({ widget, index, isEditing, isDragOver, onUpdateColSpan, onRemove, onDragStart, onDragOver, onDrop, telemetryEvents, devices }: WidgetCardProps) {
   const color = (C as any)[widget.config.colorTheme] as string ?? C.coral
   const catEntry = WIDGET_CATALOG.find(e => e.type === widget.type)
 
@@ -343,38 +345,26 @@ function WidgetCard({ widget, index, isEditing, onUpdateColSpan, onRemove, onDro
   return (
     <div
       draggable={isEditing}
-      onDragStart={(e) => {
-        if (!isEditing) return
-        e.dataTransfer.setData("text/plain", String(index))
-        e.dataTransfer.effectAllowed = "move"
-      }}
-      onDragOver={(e) => {
-        if (!isEditing) return
-        e.preventDefault()
-        e.dataTransfer.dropEffect = "move"
-        setIsDraggingOver(true)
-      }}
-      onDragLeave={() => setIsDraggingOver(false)}
-      onDrop={(e) => {
-        if (!isEditing) return
-        e.preventDefault()
-        setIsDraggingOver(false)
-        const fromIndex = Number(e.dataTransfer.getData("text/plain"))
-        if (!isNaN(fromIndex) && fromIndex !== index) {
-          onDrop?.(fromIndex, index)
-        }
-      }}
+      onDragStart={e => isEditing && onDragStart?.(e, index)}
+      onDragOver={e => isEditing && onDragOver?.(e, index)}
+      onDrop={e => isEditing && onDrop?.(e, index)}
       style={{
         gridColumn: widget.colSpan === 2 ? "span 2" : widget.colSpan === 4 ? "span 4" : "span 1",
         cursor: isEditing ? "grab" : "default",
-        transition: "opacity .15s, transform .15s",
-        opacity: isDraggingOver ? 0.6 : 1,
+        userSelect: isEditing ? "none" : "auto",
+        transition: "all .18s ease"
       }}
     >
-      <Card style={{ padding: 20, minHeight: 180, height: "100%", border: isDraggingOver ? `2px dashed ${color}` : isEditing ? `1px dashed ${color}88` : undefined }}>
+      <Card style={{
+        padding: 20, minHeight: 180, height: "100%",
+        border: isDragOver ? `2px dashed ${color}` : isEditing ? `1px dashed ${color}aa` : undefined,
+        transform: isDragOver ? "scale(1.02)" : undefined,
+        boxShadow: isDragOver ? `0 8px 24px ${color}33` : isEditing ? `0 4px 16px ${color}15` : undefined,
+        transition: "all .18s ease"
+      }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            {isEditing && <span style={{ color: C.muted, fontSize: 13, cursor: "grab", userSelect: "none" }}>⋮⋮</span>}
+            {isEditing && <span style={{ color: C.muted, fontSize: 14, cursor: "grab", userSelect: "none" }} title="Drag to reorder">⠿</span>}
             <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}18`, display: "grid", placeItems: "center", flexShrink: 0 }}>
               <Icon name={catEntry?.icon ?? "dashboard"} size={13} color={color} />
             </div>
@@ -436,6 +426,8 @@ function EmptyCanvas({ onAdd }: { onAdd: () => void }) {
 export default function DashboardView({ project }: { project: Project | null }) {
   const [widgets, setWidgets] = useState<Widget[]>([])
   const [isEditing, setIsEditing] = useState(false)
+  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const [telemetryEvents, setTelemetryEvents] = useState<any[]>([])
   const [devices, setDevices] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -500,11 +492,31 @@ export default function DashboardView({ project }: { project: Project | null }) 
     save(next)
   }
 
-  const handleReorder = (fromIndex: number, toIndex: number) => {
-    const next = [...widgets]
-    const [moved] = next.splice(fromIndex, 1)
-    next.splice(toIndex, 0, moved)
-    save(next)
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDragIndex(index)
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", index.toString())
+  }
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    if (dragOverIndex !== index) {
+      setDragOverIndex(index)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    const sourceStr = e.dataTransfer.getData("text/plain")
+    const fromIndex = sourceStr !== "" ? parseInt(sourceStr, 10) : dragIndex
+    if (fromIndex !== null && fromIndex !== undefined && !isNaN(fromIndex) && fromIndex !== dropIndex && fromIndex >= 0 && fromIndex < widgets.length) {
+      const copy = [...widgets]
+      const [moved] = copy.splice(fromIndex, 1)
+      copy.splice(dropIndex, 0, moved)
+      save(copy)
+    }
+    setDragIndex(null)
+    setDragOverIndex(null)
   }
 
   const addWidget = (type: WidgetType) => {
@@ -519,7 +531,7 @@ export default function DashboardView({ project }: { project: Project | null }) 
     save([...widgets, newWidget])
   }
 
-  const latestTime = telemetryEvents[0]?.received_at ? new Date(telemetryEvents[0].received_at).toLocaleTimeString() : "05:53:31 PM"
+  const latestTime = telemetryEvents[0]?.received_at ? new Date(telemetryEvents[0].received_at).toLocaleTimeString() : "05:59:57 PM"
 
   if (!project) return (
     <Card style={{ padding: 42, textAlign: "center" }}>
@@ -562,15 +574,18 @@ export default function DashboardView({ project }: { project: Project | null }) 
       {widgets.length === 0
         ? <EmptyCanvas onAdd={() => setShowLibrary(true)} />
         : <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
-            {widgets.map((widget, index) => (
+            {widgets.map((widget, idx) => (
               <WidgetCard
                 key={widget.id}
                 widget={widget}
-                index={index}
+                index={idx}
                 isEditing={isEditing}
+                isDragOver={dragOverIndex === idx}
                 onUpdateColSpan={span => updateColSpan(widget.id, span)}
                 onRemove={() => save(widgets.filter(w => w.id !== widget.id))}
-                onDrop={handleReorder}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
                 telemetryEvents={telemetryEvents}
                 devices={devices}
               />
