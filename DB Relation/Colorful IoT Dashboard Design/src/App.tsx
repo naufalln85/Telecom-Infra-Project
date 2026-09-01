@@ -9,6 +9,7 @@ import { Empty } from '@/views/Dashboard'
 import SettingsView from '@/views/Settings'
 import { AimlView, AlertView, AnalyticsView, GatewayView, HomeView, SensorManagementView } from '@/views/WorkspaceOverview'
 import { LandingPage } from '@/views/OtherViews'
+import logoImg from '@/assets/logo.png'
 
 type NavKey = 'home'|'dashboard'|'sensors'|'devices'|'automations'|'users'|'gateway'|'analytics'|'aiml'|'settings'|'admin'
 
@@ -192,7 +193,7 @@ function AppShell() {
       </svg>
     </div>
   ) : (
-    <img src="/logo.png" alt="Yugma" onError={() => setLogoError(true)}
+    <img src={logoImg} alt="Yugma" onError={() => setLogoError(true)}
       style={{ width:32, height:32, objectFit:'contain', flexShrink:0, borderRadius:6 }} />
   )
 
