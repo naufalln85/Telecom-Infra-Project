@@ -5,7 +5,7 @@ import { channelsApi, devicesApi, telemetryApi, type Project } from "@/lib/api"
 
 type Navigate = (view: "dashboard" | "devices" | "sensors" | "automations" | "gateway" | "analytics" | "aiml") => void
 
-// ── SVG Sparkline ─────────────────────────────────────────────────────────────
+// â”€â”€ SVG Sparkline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function Sparkline({ values, color, height = 28 }: { values: number[]; color: string; height?: number }) {
   if (!values.length) return <div style={{ height, background: `${color}18`, borderRadius: 4, width: "100%" }} />
   const max = Math.max(...values, 1), min = Math.min(...values, 0), range = max - min || 1
@@ -22,7 +22,7 @@ function Sparkline({ values, color, height = 28 }: { values: number[]; color: st
   )
 }
 
-// ── SVG Line Chart (large) ─────────────────────────────────────────────────────
+// â”€â”€ SVG Line Chart (large) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function LineChart({ data, color, height = 180, labels }: { data: number[]; color: string; height?: number; labels?: string[] }) {
   if (!data.length) return (
     <div style={{ height, border: "1px dashed var(--c-border)", borderRadius: 10, display: "grid", placeItems: "center", color: C.muted, fontSize: 12 }}>
@@ -30,48 +30,56 @@ function LineChart({ data, color, height = 180, labels }: { data: number[]; colo
     </div>
   )
   const max = Math.max(...data), min = Math.min(...data), range = max - min || 1
-  const W = 400, H = height
-  const padL = 34, padB = 22, padT = 12, padR = 8
-  const cW = W - padL - padR, cH = H - padT - padB
+  const W = 400, H = height - 26
   const pts = data.map((v, i) => {
-    const x = padL + (i / Math.max(data.length - 1, 1)) * cW
-    const y = padT + (1 - (v - min) / range) * cH
+    const x = (i / Math.max(data.length - 1, 1)) * W
+    const y = H - ((v - min) / range) * (H - 16) - 8
     return `${x},${y}`
   }).join(" ")
-  const ticks = [min, min + range * 0.5, max]
   const gradId = `grad${color.replace(/[^a-z0-9]/gi, "")}`
+  const midVal = Math.round(min + range * 0.5)
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height }}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      {ticks.map((tick, i) => {
-        const y = padT + (1 - (tick - min) / range) * cH
-        return (
-          <g key={i}>
-            <line x1={padL} y1={y} x2={W - padR} y2={y} stroke={C.border} strokeWidth="1" strokeDasharray="4,4" />
-            <text x={padL - 4} y={y + 4} textAnchor="end" fill={C.muted} fontSize="8" fontFamily="DM Mono, monospace">{Math.round(tick)}</text>
-          </g>
-        )
-      })}
-      {data.length > 1 && <polygon points={`${padL},${padT + cH} ${pts} ${padL + cW},${padT + cH}`} fill={`url(#${gradId})`} />}
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1={padL} y1={padT + cH} x2={W - padR} y2={padT + cH} stroke={C.border} strokeWidth="1" />
-      {labels && data.map((_, i) => {
-        if (labels[i] && i % Math.ceil(data.length / 6) === 0) {
-          const x = padL + (i / Math.max(data.length - 1, 1)) * cW
-          return <text key={i} x={x} y={H - 4} textAnchor="middle" fill={C.muted} fontSize="8" fontFamily="DM Mono, monospace">{labels[i]}</text>
-        }
-        return null
-      })}
-    </svg>
+    <div style={{ position: "relative", height, display: "flex", flexDirection: "column" }}>
+      {/* Y-Axis overlay on left */}
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 26, display: "flex", flexDirection: "column", justifyContent: "space-between", fontSize: 10, fontFamily: "DM Mono, monospace", color: C.muted, pointerEvents: "none", zIndex: 2 }}>
+        <span>{Math.round(max)}</span>
+        <span>{midVal}</span>
+        <span>{Math.round(min)}</span>
+      </div>
+
+      {/* SVG Line & Gradient */}
+      <div style={{ flex: 1, marginLeft: 30, position: "relative" }}>
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: "100%", display: "block" }}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.32" />
+              <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+            </linearGradient>
+          </defs>
+          <line x1="0" y1="4" x2={W} y2="4" stroke={C.border} strokeWidth="1" strokeDasharray="4,4" />
+          <line x1="0" y1={H / 2} x2={W} y2={H / 2} stroke={C.border} strokeWidth="1" strokeDasharray="4,4" />
+          <line x1="0" y1={H - 4} x2={W} y2={H - 4} stroke={C.border} strokeWidth="1" strokeDasharray="4,4" />
+          {data.length > 1 && <polygon points={`0,${H} ${pts} ${W},${H}`} fill={`url(#${gradId})`} />}
+          <polyline points={pts} fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+
+      {/* X-Axis Time Labels */}
+      <div style={{ height: 20, marginLeft: 30, display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 6 }}>
+        {labels && labels.length > 0 ? (
+          labels.filter((_, i) => i % Math.max(Math.ceil(labels.length / 6), 1) === 0).map((lbl, idx) => (
+            <span key={idx} style={{ fontSize: 10, fontFamily: "DM Mono, monospace", color: C.muted }}>{lbl}</span>
+          ))
+        ) : (
+          <span style={{ fontSize: 10, color: C.muted }}>Realtime</span>
+        )}
+      </div>
+    </div>
   )
 }
 
-// ── Empty Panel ────────────────────────────────────────────────────────────────
+// â”€â”€ Empty Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const EmptyPanel = ({ icon, title, text, action }: { icon: string; title: string; text: string; action?: React.ReactNode }) => (
   <Card style={{ minHeight: 200, display: "grid", placeItems: "center", textAlign: "center", padding: 28 }}>
     <div>
@@ -85,15 +93,15 @@ const EmptyPanel = ({ icon, title, text, action }: { icon: string; title: string
   </Card>
 )
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // HOME VIEW
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function HomeView({ project, account, onNavigate }: {
   project: Project | null
   account?: { email?: string } | null
   onNavigate: Navigate
 }) {
-  const [stats, setStats] = React.useState({ total: 0, online: 0, lastSync: "–" })
+  const [stats, setStats] = React.useState({ total: 0, online: 0, lastSync: "â€“" })
   const [activity, setActivity] = React.useState<{ icon: string; text: string; time: string; color: string }[]>([])
 
   React.useEffect(() => {
@@ -133,9 +141,9 @@ export function HomeView({ project, account, onNavigate }: {
           <div style={{ fontSize: 40, fontWeight: 900, color: C.coral, fontFamily: "DM Mono, monospace" }}>{fleetPct}%</div>
           <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em" }}>FLEET ONLINE</div>
         </div>
-        <h1 style={{ margin: "0 0 6px", fontSize: 22, color: C.light, fontWeight: 800 }}>Welcome back, {name} 👋</h1>
+        <h1 style={{ margin: "0 0 6px", fontSize: 22, color: C.light, fontWeight: 800 }}>Welcome back, {name} ðŸ‘‹</h1>
         <p style={{ margin: 0, fontSize: 13, color: C.muted }}>
-          Your <b style={{ color: C.coral }}>{project?.name ?? "–"}</b> project is {stats.online > 0 ? "live" : "ready"} · {stats.online}/{stats.total} devices online · Last sync {stats.lastSync}
+          Your <b style={{ color: C.coral }}>{project?.name ?? "â€“"}</b> project is {stats.online > 0 ? "live" : "ready"} Â· {stats.online}/{stats.total} devices online Â· Last sync {stats.lastSync}
         </p>
       </Card>
 
@@ -174,9 +182,9 @@ export function HomeView({ project, account, onNavigate }: {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // SENSOR MANAGEMENT VIEW
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function SensorManagementView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {
   const [devices, setDevices] = React.useState<any[]>([])
   const [telemetryMap, setTelemetryMap] = React.useState<Record<number, any>>({})
@@ -214,7 +222,7 @@ export function SensorManagementView({ project, onNavigate }: { project: Project
             const ev = telemetryMap[dev.id], payload = ev?.payload || {}
             const receivedAt = ev?.received_at ? new Date(ev.received_at).toLocaleTimeString() : null
             return (dev.channels || []).map((ch: any) => {
-              const val = payload[ch.name] ?? payload[ch.name?.toLowerCase()] ?? "–"
+              const val = payload[ch.name] ?? payload[ch.name?.toLowerCase()] ?? "â€“"
               return (
                 <Card key={`${dev.id}-${ch.id}`} style={{ padding: 22 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -240,9 +248,9 @@ export function SensorManagementView({ project, onNavigate }: { project: Project
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // GATEWAY VIEW
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function GatewayView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {
   const [counts, setCounts] = React.useState({ http: 0, mqtt: 0, coap: 0 })
 
@@ -262,14 +270,14 @@ export function GatewayView({ project, onNavigate }: { project: Project | null; 
 
   return (
     <div>
-      <PageHeader icon="gateway" title="Gateway Monitor" sub="Multi-protocol ingestion: HTTP · MQTT · CoAP"
+      <PageHeader icon="gateway" title="Gateway Monitor" sub="Multi-protocol ingestion: HTTP Â· MQTT Â· CoAP"
         action={<Btn icon="devices" onClick={() => onNavigate("devices")}>Kelola Perangkat</Btn>} />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 18 }}>
         {protocols.map(([name, port, color, count]) => (
           <Card key={name} style={{ padding: 30, minHeight: 210 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <b style={{ color: C.light, fontSize: 16 }}>{name}</b>
-              <span style={{ fontSize: 10, color: count > 0 ? C.teal : C.muted, fontWeight: 700 }}>{count > 0 ? "✅ AKTIF" : "Menunggu data"}</span>
+              <span style={{ fontSize: 10, color: count > 0 ? C.teal : C.muted, fontWeight: 700 }}>{count > 0 ? "âœ… AKTIF" : "Menunggu data"}</span>
             </div>
             <div style={{ fontSize: 52, color, fontWeight: 800, margin: "28px 0 20px", fontFamily: "DM Mono, monospace" }}>{count}</div>
             <div style={{ display: "flex", justifyContent: "space-between", color: C.muted, fontSize: 12 }}>
@@ -290,9 +298,9 @@ export function GatewayView({ project, onNavigate }: { project: Project | null; 
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ANALYTICS VIEW
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function AnalyticsView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {
   const [events, setEvents] = React.useState<any[]>([])
   const [range, setRange] = React.useState("24h")
@@ -337,14 +345,14 @@ export function AnalyticsView({ project, onNavigate }: { project: Project | null
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 20 }}>
         {[
-          { label: "AVERAGE HOP LATENCY", value: events.length ? "14.2 ms" : "– ms", sub: "Redis Streams Consumer Speed", color: C.coral },
+          { label: "AVERAGE HOP LATENCY", value: events.length ? "14.2 ms" : "â€“ ms", sub: "Redis Streams Consumer Speed", color: C.coral },
           { label: "PACKET THROUGHPUT", value: events.length ? `${events.length} msg/s` : "0 msg/s", sub: "Protocol Gateway", color: C.purple },
-          { label: "DB STORAGE RATE", value: events.length ? "99.9%" : "–", sub: "Zero Packet Loss", color: C.magenta },
+          { label: "DB STORAGE RATE", value: events.length ? "99.9%" : "â€“", sub: "Zero Packet Loss", color: C.magenta },
         ].map(card => (
           <Card key={card.label} style={{ padding: 24 }}>
             <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 12 }}>{card.label}</div>
             <div style={{ fontSize: 30, fontWeight: 900, color: card.color, fontFamily: "DM Mono, monospace", marginBottom: 8 }}>{card.value}</div>
-            <div style={{ fontSize: 11, color: C.muted }}>✓ {card.sub}</div>
+            <div style={{ fontSize: 11, color: C.muted }}>âœ“ {card.sub}</div>
           </Card>
         ))}
       </div>
@@ -368,9 +376,9 @@ export function AnalyticsView({ project, onNavigate }: { project: Project | null
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // ALERT VIEW
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function AlertView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {
   const [devices, setDevices] = React.useState<any[]>([])
   const [rules, setRules] = React.useState<{ id: number; device: string; channel: string; condition: string; value: string; action: string; severity: string }[]>([])
@@ -402,7 +410,7 @@ export function AlertView({ project, onNavigate }: { project: Project | null; on
   const channelOptions = ["Temperature", "Humidity", "LDR", "ldr_lux", "light", "Voltage", "Pressure"].map(v => ({ value: v, label: v }))
   const condOptions = [">", ">=", "<", "<=", "==", "!="].map(v => ({ value: v, label: v }))
   const actionOptions = ["Notification", "Email", "SMS", "Webhook", "Log"].map(v => ({ value: v, label: v }))
-  const severityOptions = [{ value: "Low", label: "🟢 Low" }, { value: "Medium", label: "🟡 Medium" }, { value: "High", label: "🔴 High" }]
+  const severityOptions = [{ value: "Low", label: "ðŸŸ¢ Low" }, { value: "Medium", label: "ðŸŸ¡ Medium" }, { value: "High", label: "ðŸ”´ High" }]
 
   const addRule = () => setRules(prev => [...prev, { id: Date.now(), device: selDevice, channel: selChannel, condition: selCond, value: threshVal, action: selAction, severity: selSeverity }])
 
@@ -420,7 +428,7 @@ export function AlertView({ project, onNavigate }: { project: Project | null; on
           </div>
           <div>
             <b style={{ color: C.light, fontSize: 15 }}>Quick Threshold Builder</b>
-            <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Build an automation rule in seconds — no code required</div>
+            <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Build an automation rule in seconds â€” no code required</div>
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 0.7fr 1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
@@ -450,7 +458,7 @@ export function AlertView({ project, onNavigate }: { project: Project | null; on
               <b style={{ color: C.light, fontSize: 14 }}>Active Rules</b>
               {rules.length > 0 && <span style={{ fontSize: 10, background: `${C.coral}22`, color: C.coral, borderRadius: 10, padding: "2px 8px", fontWeight: 700 }}>{rules.length}</span>}
             </div>
-            <button onClick={() => {}} style={{ fontSize: 11, color: C.muted, background: "transparent", border: 0, cursor: "pointer", fontFamily: "inherit" }}>↻ Refresh</button>
+            <button onClick={() => {}} style={{ fontSize: 11, color: C.muted, background: "transparent", border: 0, cursor: "pointer", fontFamily: "inherit" }}>â†» Refresh</button>
           </div>
           {rules.length === 0 ? (
             <div style={{ textAlign: "center", padding: "28px 0", color: C.muted, fontSize: 12 }}>
@@ -462,7 +470,7 @@ export function AlertView({ project, onNavigate }: { project: Project | null; on
               {rules.map(rule => (
                 <div key={rule.id} style={{ padding: "10px 14px", borderRadius: 10, background: C.surface2, border: `1px solid ${C.border}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <b style={{ color: C.light, fontSize: 12 }}>{rule.device} · {rule.channel} {rule.condition} {rule.value}</b>
+                    <b style={{ color: C.light, fontSize: 12 }}>{rule.device} Â· {rule.channel} {rule.condition} {rule.value}</b>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                       <Icon name="bell" size={12} color={C.muted} />
                       <button onClick={() => setRules(p => p.filter(r => r.id !== rule.id))} style={{ border: 0, background: "transparent", color: C.muted, cursor: "pointer", padding: 0 }}>
@@ -470,14 +478,14 @@ export function AlertView({ project, onNavigate }: { project: Project | null; on
                       </button>
                     </div>
                   </div>
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>→ {rule.action} · {rule.severity} Severity</div>
+                  <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>â†’ {rule.action} Â· {rule.severity} Severity</div>
                 </div>
               ))}
             </div>
           )}
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
             <button onClick={() => onNavigate("sensors")} style={{ fontSize: 11, color: C.muted, background: "transparent", border: 0, cursor: "pointer", fontFamily: "inherit" }}>
-              + Notification Channels · + Add Channel
+              + Notification Channels Â· + Add Channel
             </button>
           </div>
         </Card>
@@ -504,13 +512,13 @@ export function AlertView({ project, onNavigate }: { project: Project | null; on
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: item.severity === "High" ? C.coral : item.severity === "Medium" ? C.amber : C.teal, display: "inline-block", marginTop: 4, flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 12, color: C.light }}>{item.channel} {">"} {item.value} on {item.device}</div>
-                      <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Notification Sent · {item.time}</div>
+                      <div style={{ fontSize: 10, color: C.muted, marginTop: 2 }}>Notification Sent Â· {item.time}</div>
                     </div>
                   </div>
                 ))}
               </div>
               <div style={{ fontSize: 10, color: C.muted, textAlign: "right", marginTop: 8 }}>
-                Showing last {history.length} events · <span style={{ color: C.coral, cursor: "pointer" }}>View all history →</span>
+                Showing last {history.length} events Â· <span style={{ color: C.coral, cursor: "pointer" }}>View all history â†’</span>
               </div>
             </>
           )}
@@ -520,27 +528,45 @@ export function AlertView({ project, onNavigate }: { project: Project | null; on
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // AI / ML BUILDER VIEW
-// ═══════════════════════════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 export function AimlView({ onNavigate }: { onNavigate: Navigate }) {
   const [running, setRunning] = React.useState<string | null>(null)
   const [results, setResults] = React.useState<Record<string, string>>({})
+  const [showBuildModal, setShowBuildModal] = React.useState(false)
+  const [customModels, setCustomModels] = React.useState<{ name: string; type: string; channels: string; threshold: string; created: string }[]>([])
+  const [form, setForm] = React.useState({ name: "", type: "ANOMALY_DETECTION", channels: "", threshold: "" })
+  const [building, setBuilding] = React.useState(false)
 
   const templates = [
-    { title: "Weather Predictor", kind: "CLASSIFICATION", icon: "☁️", text: "Predict weather conditions based on temperature and humidity sensor.", channels: ["temperature", "humidity"], color: C.coral },
-    { title: "Anomaly Detector", kind: "ANOMALY_DETECTION", icon: "🚨", text: "Detect anomalous sensor values using Z-Score. Values >2σ flagged as anomaly.", channels: ["any_numeric"], color: C.purple },
-    { title: "Trend Forecaster", kind: "REGRESSION", icon: "📈", text: "Predict next sensor values using linear regression from historical data.", channels: ["any_numeric"], color: C.magenta },
-    { title: "Soil & Plant Health", kind: "ADVISORY", icon: "🌿", text: "Analyze soil conditions from humidity & temperature to recommend irrigation.", channels: ["humidity", "temperature"], color: C.amber },
+    { title: "Weather Predictor", kind: "CLASSIFICATION", icon: "â˜ï¸", text: "Predict weather conditions based on temperature and humidity sensor.", channels: ["temperature", "humidity"], color: C.coral },
+    { title: "Anomaly Detector", kind: "ANOMALY_DETECTION", icon: "ðŸš¨", text: "Detect anomalous sensor values using Z-Score. Values >2Ïƒ flagged as anomaly.", channels: ["any_numeric"], color: C.purple },
+    { title: "Trend Forecaster", kind: "REGRESSION", icon: "ðŸ“ˆ", text: "Predict next sensor values using linear regression from historical data.", channels: ["any_numeric"], color: C.magenta },
+    { title: "Soil & Plant Health", kind: "ADVISORY", icon: "ðŸŒ¿", text: "Analyze soil conditions from humidity & temperature to recommend irrigation.", channels: ["humidity", "temperature"], color: C.amber },
   ]
 
   const runModel = (title: string) => {
     setRunning(title)
     setTimeout(() => {
       setRunning(null)
-      setResults(prev => ({ ...prev, [title]: `✅ Output: confidence=0.94 · class=NORMAL · latency=28ms` }))
+      setResults(prev => ({ ...prev, [title]: "Output: confidence=0.94 class=NORMAL latency=28ms" }))
     }, 1800)
   }
+
+  const buildModel = () => {
+    if (!form.name.trim() || !form.channels.trim()) return
+    setBuilding(true)
+    setTimeout(() => {
+      setBuilding(false)
+      setCustomModels(prev => [...prev, { ...form, created: new Date().toLocaleString() }])
+      setForm({ name: "", type: "ANOMALY_DETECTION", channels: "", threshold: "" })
+      setShowBuildModal(false)
+    }, 2000)
+  }
+
+  const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 9, fontSize: 13, color: C.light, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }
+  const lbl: React.CSSProperties = { fontSize: 11, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", display: "block", marginBottom: 6 }
 
   return (
     <div>
@@ -548,7 +574,7 @@ export function AimlView({ onNavigate }: { onNavigate: Navigate }) {
 
       {/* Model Preset Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-        <span style={{ fontSize: 20 }}>🚀</span>
+        <span style={{ fontSize: 20 }}>ðŸš€</span>
         <b style={{ color: C.light, fontSize: 16 }}>Model Preset Platform</b>
         <span style={{ fontSize: 9, background: `${C.purple}22`, color: C.purple, padding: "4px 9px", borderRadius: 5, fontWeight: 700, border: `1px solid ${C.purple}44` }}>TERSEDIA UNTUK SEMUA PENGGUNA</span>
       </div>
@@ -558,7 +584,7 @@ export function AimlView({ onNavigate }: { onNavigate: Navigate }) {
           <Card key={t.title} style={{ padding: 22, minHeight: 290 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
               <span style={{ fontSize: 9, fontWeight: 800, padding: "3px 8px", borderRadius: 5, background: `${t.color}18`, color: t.color }}>{t.kind}</span>
-              <span style={{ fontSize: 9, background: `${C.teal}18`, color: C.teal, padding: "3px 8px", borderRadius: 4, fontWeight: 700, border: `1px solid ${C.teal}33` }}>● DEPLOYED</span>
+              <span style={{ fontSize: 9, background: `${C.teal}18`, color: C.teal, padding: "3px 8px", borderRadius: 4, fontWeight: 700, border: `1px solid ${C.teal}33` }}>â— DEPLOYED</span>
             </div>
             <div style={{ fontSize: 26, margin: "12px 0 10px" }}>{t.icon}</div>
             <b style={{ color: C.light, fontSize: 14 }}>{t.title}</b>
@@ -572,26 +598,113 @@ export function AimlView({ onNavigate }: { onNavigate: Navigate }) {
               cursor: running === t.title ? "default" : "pointer", fontFamily: "inherit", fontWeight: 700, fontSize: 12,
               display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "all .2s",
             }}>
-              {running === t.title ? "⏳ Running..." : "▷ Jalankan Model"}
+              {running === t.title ? "â³ Running..." : "â–· Jalankan Model"}
             </button>
             {results[t.title] && <div style={{ marginTop: 8, fontSize: 10, color: C.teal, lineHeight: 1.5 }}>{results[t.title]}</div>}
           </Card>
         ))}
       </div>
 
-      {/* Model Kustom Anda */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-        <span style={{ fontSize: 13, color: C.muted, fontFamily: "DM Mono, monospace" }}>{"</>"}</span>
-        <b style={{ color: C.light, fontSize: 15 }}>Model Kustom Anda</b>
-      </div>
-      <Card style={{ padding: 36, textAlign: "center", minHeight: 160, display: "grid", placeItems: "center" }}>
-        <div>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🧪</div>
-          <b style={{ color: C.light, fontSize: 15 }}>Belum ada model kustom</b>
-          <p style={{ color: C.muted, fontSize: 13, margin: "8px 0 18px" }}>Buat model kustom berdasarkan data telemetri Anda untuk inferensi yang lebih akurat.</p>
-          <Btn variant="primary" icon="plus" onClick={() => onNavigate("sensors")}>+ Buat Model Kustom</Btn>
+
+      {/* Model Kustom */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, color: C.muted, fontFamily: "DM Mono, monospace" }}>{"</>"}</span>
+          <b style={{ color: C.light, fontSize: 15 }}>Model Kustom Anda</b>
+          {customModels.length > 0 && <span style={{ fontSize: 10, background: `${C.teal}18`, color: C.teal, padding: "3px 8px", borderRadius: 5, fontWeight: 700 }}>{customModels.length} MODEL</span>}
         </div>
-      </Card>
+        <Btn variant="primary" icon="plus" onClick={() => setShowBuildModal(true)}>+ Buat Model Kustom</Btn>
+      </div>
+
+      {customModels.length === 0 ? (
+        <Card style={{ padding: 36, textAlign: "center", minHeight: 160, display: "grid", placeItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🧪</div>
+            <b style={{ color: C.light, fontSize: 15 }}>Belum ada model kustom</b>
+            <p style={{ color: C.muted, fontSize: 13, margin: "8px 0 18px" }}>Buat model kustom berdasarkan data telemetri Anda untuk inferensi yang lebih akurat.</p>
+            <Btn variant="ghost" icon="plus" onClick={() => setShowBuildModal(true)}>Mulai buat model pertama</Btn>
+          </div>
+        </Card>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>
+          {customModels.map((m, i) => (
+            <Card key={i} style={{ padding: 18, display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: `${C.purple}18`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+                <Icon name="brain" size={18} color={C.purple} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <b style={{ color: C.light, fontSize: 14 }}>{m.name}</b>
+                  <span style={{ fontSize: 9, background: `${C.purple}18`, color: C.purple, padding: "2px 7px", borderRadius: 4, fontWeight: 700 }}>{m.type}</span>
+                </div>
+                <div style={{ fontSize: 11, color: C.muted }}>Channels: {m.channels} / Threshold: {m.threshold || "auto"} / Dibuat: {m.created}</div>
+              </div>
+              <span style={{ fontSize: 10, background: `${C.amber}18`, color: C.amber, padding: "4px 10px", borderRadius: 6, fontWeight: 700 }}>TRAINING</span>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {showBuildModal && (
+        <div onClick={() => setShowBuildModal(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.6)", backdropFilter: "blur(3px)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20, padding: 32, width: 480, maxWidth: "92vw", boxShadow: "0 24px 64px rgba(0,0,0,.6)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                  <Icon name="brain" size={20} color={C.coral} />
+                  <b style={{ fontSize: 17, color: C.light }}>Buat Model Kustom</b>
+                </div>
+                <p style={{ color: C.muted, fontSize: 12, margin: 0 }}>Definisikan model machine learning dari data sensor Anda.</p>
+              </div>
+              <button onClick={() => setShowBuildModal(false)} style={{ border: 0, background: "transparent", color: C.muted, cursor: "pointer", padding: 4 }}>
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 16 }}>
+              <div>
+                <label style={lbl}>Nama Model *</label>
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. My Temperature Anomaly Detector"
+                  style={{ ...inp, borderColor: form.name ? `${C.coral}88` : C.border }} />
+              </div>
+              <div>
+                <label style={lbl}>Tipe Model</label>
+                <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))} style={inp}>
+                  <option value="ANOMALY_DETECTION">Anomaly Detection</option>
+                  <option value="CLASSIFICATION">Classification</option>
+                  <option value="REGRESSION">Regression / Forecasting</option>
+                  <option value="ADVISORY">Advisory / Rule-based</option>
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>Input Channel / Sensor *</label>
+                <input value={form.channels} onChange={e => setForm(f => ({ ...f, channels: e.target.value }))}
+                  placeholder="e.g. temperature, humidity, ldr_lux"
+                  style={{ ...inp, borderColor: form.channels ? `${C.coral}88` : C.border }} />
+                <div style={{ fontSize: 10, color: C.muted, marginTop: 5 }}>Pisahkan dengan koma untuk multiple channels</div>
+              </div>
+              <div>
+                <label style={lbl}>Threshold (opsional)</label>
+                <input value={form.threshold} onChange={e => setForm(f => ({ ...f, threshold: e.target.value }))}
+                  placeholder="e.g. 2.0 (sigma) atau 35.0 (nilai)" style={inp} />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+              <button onClick={buildModel} disabled={building || !form.name.trim() || !form.channels.trim()} style={{
+                flex: 1, padding: "12px 0", border: 0, borderRadius: 10,
+                background: `linear-gradient(135deg,${C.coral},${C.purple})`,
+                color: "#fff", fontWeight: 800, fontSize: 13, fontFamily: "inherit",
+                cursor: building || !form.name.trim() || !form.channels.trim() ? "not-allowed" : "pointer",
+                opacity: building || !form.name.trim() || !form.channels.trim() ? .5 : 1,
+                transition: "opacity .2s"
+              }}>
+                {building ? "Building model..." : "Build & Deploy Model"}
+              </button>
+              <Btn variant="ghost" onClick={() => setShowBuildModal(false)}>Batal</Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
