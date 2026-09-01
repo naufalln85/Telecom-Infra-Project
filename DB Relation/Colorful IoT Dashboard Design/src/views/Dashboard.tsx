@@ -166,14 +166,17 @@ function DimmerWidget({ color }: { color: string }) {
 // ── Main Widget Renderer ───────────────────────────────────────────────────────
 interface WidgetCardProps {
   widget: Widget
+  index: number
   isEditing?: boolean
   onUpdateColSpan?: (span: 1 | 2 | 4) => void
   onRemove: () => void
+  onDrop?: (fromIndex: number, toIndex: number) => void
   telemetryEvents: { device_id: number; payload: Record<string, any>; received_at: string; protocol: string }[]
   devices: { id: number; name: string }[]
 }
 
-function WidgetCard({ widget, isEditing, onUpdateColSpan, onRemove, telemetryEvents, devices }: WidgetCardProps) {
+function WidgetCard({ widget, index, isEditing, onUpdateColSpan, onRemove, onDrop, telemetryEvents, devices }: WidgetCardProps) {
+  const [isDraggingOver, setIsDraggingOver] = useState(false)
   const color = (C as any)[widget.config.colorTheme] as string ?? C.coral
   const catEntry = WIDGET_CATALOG.find(e => e.type === widget.type)
 
@@ -338,10 +341,40 @@ function WidgetCard({ widget, isEditing, onUpdateColSpan, onRemove, telemetryEve
   }
 
   return (
-    <div style={{ gridColumn: widget.colSpan === 2 ? "span 2" : widget.colSpan === 4 ? "span 4" : "span 1" }}>
-      <Card style={{ padding: 20, minHeight: 180, height: "100%", border: isEditing ? `1px dashed ${color}` : undefined }}>
+    <div
+      draggable={isEditing}
+      onDragStart={(e) => {
+        if (!isEditing) return
+        e.dataTransfer.setData("text/plain", String(index))
+        e.dataTransfer.effectAllowed = "move"
+      }}
+      onDragOver={(e) => {
+        if (!isEditing) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = "move"
+        setIsDraggingOver(true)
+      }}
+      onDragLeave={() => setIsDraggingOver(false)}
+      onDrop={(e) => {
+        if (!isEditing) return
+        e.preventDefault()
+        setIsDraggingOver(false)
+        const fromIndex = Number(e.dataTransfer.getData("text/plain"))
+        if (!isNaN(fromIndex) && fromIndex !== index) {
+          onDrop?.(fromIndex, index)
+        }
+      }}
+      style={{
+        gridColumn: widget.colSpan === 2 ? "span 2" : widget.colSpan === 4 ? "span 4" : "span 1",
+        cursor: isEditing ? "grab" : "default",
+        transition: "opacity .15s, transform .15s",
+        opacity: isDraggingOver ? 0.6 : 1,
+      }}
+    >
+      <Card style={{ padding: 20, minHeight: 180, height: "100%", border: isDraggingOver ? `2px dashed ${color}` : isEditing ? `1px dashed ${color}88` : undefined }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {isEditing && <span style={{ color: C.muted, fontSize: 13, cursor: "grab", userSelect: "none" }}>⋮⋮</span>}
             <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}18`, display: "grid", placeItems: "center", flexShrink: 0 }}>
               <Icon name={catEntry?.icon ?? "dashboard"} size={13} color={color} />
             </div>
@@ -467,6 +500,13 @@ export default function DashboardView({ project }: { project: Project | null }) 
     save(next)
   }
 
+  const handleReorder = (fromIndex: number, toIndex: number) => {
+    const next = [...widgets]
+    const [moved] = next.splice(fromIndex, 1)
+    next.splice(toIndex, 0, moved)
+    save(next)
+  }
+
   const addWidget = (type: WidgetType) => {
     const entry = WIDGET_CATALOG.find(e => e.type === type)
     if (!entry) return
@@ -522,13 +562,15 @@ export default function DashboardView({ project }: { project: Project | null }) 
       {widgets.length === 0
         ? <EmptyCanvas onAdd={() => setShowLibrary(true)} />
         : <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
-            {widgets.map(widget => (
+            {widgets.map((widget, index) => (
               <WidgetCard
                 key={widget.id}
                 widget={widget}
+                index={index}
                 isEditing={isEditing}
                 onUpdateColSpan={span => updateColSpan(widget.id, span)}
                 onRemove={() => save(widgets.filter(w => w.id !== widget.id))}
+                onDrop={handleReorder}
                 telemetryEvents={telemetryEvents}
                 devices={devices}
               />
