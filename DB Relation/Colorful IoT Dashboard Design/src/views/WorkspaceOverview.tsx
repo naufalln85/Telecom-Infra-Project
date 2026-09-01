@@ -25,7 +25,103 @@ export function HomeView({ project, onNavigate }: { project: Project | null; onN
 }
 
 export function SensorManagementView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {
-  return <div><PageHeader icon="data" title="Sensors Management" sub="Live telemetry data channels dari perangkat aktif." action={<Btn icon="refresh" onClick={() => onNavigate("devices")}>Sync Sensor Channels</Btn>} /><EmptyPanel icon="data" title="Belum ada channel sensor" text="Tambahkan perangkat kemudian channel sensor untuk menampilkan kartu Temperature, Humidity, status relay, dan telemetry di sini." action={<Btn icon="plus" onClick={() => onNavigate("devices")}>Tambah perangkat</Btn>} /></div>
+  const [devices, setDevices] = React.useState<any[]>([])
+  const [telemetryMap, setTelemetryMap] = React.useState<Record<number, any>>({})
+  const [loading, setLoading] = React.useState(false)
+
+  const loadData = React.useCallback(async () => {
+    if (!project) return
+    setLoading(true)
+    try {
+      const [devList, events] = await Promise.all([
+        devicesApi.list(project.id),
+        telemetryApi.latest(project.id).catch(() => [])
+      ])
+
+      const devWithChannels = await Promise.all(
+        devList.map(async (dev) => {
+          const channels = await channelsApi.list(dev.id).catch(() => [])
+          return { ...dev, channels }
+        })
+      )
+
+      const map: Record<number, any> = {}
+      for (const ev of events) {
+        map[ev.device_id] = ev
+      }
+
+      setDevices(devWithChannels)
+      setTelemetryMap(map)
+    } catch {
+      // fallback silent
+    } finally {
+      setLoading(false)
+    }
+  }, [project?.id])
+
+  React.useEffect(() => {
+    loadData()
+    const timer = setInterval(loadData, 5000)
+    return () => clearInterval(timer)
+  }, [loadData])
+
+  if (!project) return <EmptyPanel icon="data" title="Pilih Project" text="Pilih project untuk melihat channel sensor." />
+
+  const totalChannels = devices.reduce((sum, d) => sum + (d.channels?.length || 0), 0)
+
+  return (
+    <div>
+      <PageHeader
+        icon="data"
+        title="Sensors Management"
+        sub="Live telemetry data channels dari perangkat aktif."
+        action={<Btn icon="refresh" onClick={loadData}>{loading ? "Syncing..." : "Sync Sensor Channels"}</Btn>}
+      />
+
+      {devices.length === 0 || totalChannels === 0 ? (
+        <EmptyPanel
+          icon="data"
+          title="Belum ada channel sensor"
+          text="Tambahkan perangkat di menu Devices, kemudian masukkan nama channel (seperti light, ldr_lux, temperature) untuk menampilkan data di sini."
+          action={<Btn icon="plus" onClick={() => onNavigate("devices")}>Kelola Perangkat</Btn>}
+        />
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
+          {devices.map((dev) => {
+            const ev = telemetryMap[dev.id]
+            const payload = ev?.payload || {}
+            const receivedAt = ev?.received_at ? new Date(ev.received_at).toLocaleTimeString() : null
+
+            return (dev.channels || []).map((ch: any) => {
+              const chName = ch.name
+              // Match exact or lowercase
+              const val = payload[chName] ?? payload[chName.toLowerCase()] ?? payload[chName.toUpperCase()] ?? "-"
+
+              return (
+                <Card key={`${dev.id}-${ch.id}`} style={{ padding: 22 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.purple, padding: "4px 8px", background: `${C.purple}18`, borderRadius: 6 }}>
+                      {dev.name}
+                    </span>
+                    <span style={{ fontSize: 10, color: C.muted }}>
+                      {receivedAt ? `Received: ${receivedAt}` : "No Data Yet"}
+                    </span>
+                  </div>
+                  <b style={{ color: C.light, fontSize: 16 }}>{chName}</b>
+                  <div style={{ fontSize: 32, fontWeight: 800, color: C.coral, margin: "16px 0 8px", fontFamily: "DM Mono, monospace" }}>
+                    {typeof val === "number" ? val.toFixed(1) : String(val)}
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 11 }}>
+                    Protocol: <b style={{ color: C.light }}>{ev?.protocol || "HTTP"}</b>
+                  </div>
+                </Card>
+              )
+            })
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function GatewayView({ project, onNavigate }: { project: Project | null; onNavigate: Navigate }) {

@@ -23,23 +23,42 @@ function EmptyCanvas({ onAdd }: { onAdd: () => void }) {
 
 export default function DashboardView({ project }: { project: Project | null }) {
   const [widgets, setWidgets] = useState<CanvasWidget[]>([])
+  const [telemetryEvents, setTelemetryEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [showLibrary, setShowLibrary] = useState(false)
+
+  const loadTelemetry = React.useCallback(async () => {
+    if (!project) return
+    try {
+      const events = await telemetryApi.latest(project.id)
+      setTelemetryEvents(events)
+    } catch {
+      // silent
+    }
+  }, [project?.id])
 
   useEffect(() => {
     setWidgets([]); setMessage("")
     if (!project) return
     setLoading(true)
-    dashboardApi.get(project.id).then(saved => {
+
+    Promise.all([
+      dashboardApi.get(project.id),
+      telemetryApi.latest(project.id).catch(() => [])
+    ]).then(([saved, events]) => {
       const valid: CanvasWidget[] = Array.isArray(saved)
         ? saved
             .filter((item): item is CanvasWidget => Boolean(item && typeof item.id === "string" && typeof item.type === "string" && typeof item.title === "string"))
             .map((item, index): CanvasWidget => ({ ...item, color: typeof item.color === "string" ? item.color : defaultColor(index), size: item.size === "wide" ? "wide" : "normal" }))
         : []
       setWidgets(valid)
+      setTelemetryEvents(events)
     }).catch(error => setMessage(error instanceof Error ? error.message : "Gagal memuat dashboard.")).finally(() => setLoading(false))
-  }, [project?.id])
+
+    const timer = setInterval(loadTelemetry, 5000)
+    return () => clearInterval(timer)
+  }, [project?.id, loadTelemetry])
 
   const save = async (next: CanvasWidget[]) => {
     if (!project) return
@@ -51,12 +70,61 @@ export default function DashboardView({ project }: { project: Project | null }) 
     const widget: CanvasWidget = { id:createWidgetId(), type:entry.type, title:entry.label, color:defaultColor(widgets.length), size:entry.defaultColSpan > 1 ? "wide" : "normal" }
     save([...widgets, widget]); setShowLibrary(false)
   }
+
+  // Aggregate all payloads from latest events
+  const aggregatedPayload: Record<string, any> = {}
+  let latestTime: string | null = null
+  for (const ev of telemetryEvents) {
+    if (ev.payload && typeof ev.payload === "object") {
+      Object.assign(aggregatedPayload, ev.payload)
+    }
+    if (ev.received_at && (!latestTime || new Date(ev.received_at) > new Date(latestTime))) {
+      latestTime = ev.received_at
+    }
+  }
+
   if (!project) return <Empty title="Pilih atau buat project" text="Dashboard dibuat terpisah untuk setiap project." />
   if (loading) return <div style={{ color:C.muted }}>Memuat canvas dashboard...</div>
   return <div>
-    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}><Btn variant="ghost" icon="edit">Edit Layout</Btn><Btn variant="ghost" icon="plus" onClick={() => setShowLibrary(true)}>Add Widget</Btn><span style={{ marginLeft:"auto", color:C.muted, fontSize:11 }}>{widgets.length} widget{widgets.length === 1 ? "" : "s"} active</span></div>
+    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
+      <Btn variant="ghost" icon="refresh" onClick={loadTelemetry}>Refresh Live Data</Btn>
+      <Btn variant="ghost" icon="plus" onClick={() => setShowLibrary(true)}>Add Widget</Btn>
+      <span style={{ marginLeft:"auto", color:C.muted, fontSize:11 }}>
+        {widgets.length} widget{widgets.length === 1 ? "" : "s"} active {latestTime ? `· Live: ${new Date(latestTime).toLocaleTimeString()}` : ""}
+      </span>
+    </div>
     {message && <p style={{ color:C.coral, fontSize:12 }}>{message}</p>}
-    {widgets.length === 0 ? <EmptyCanvas onAdd={() => setShowLibrary(true)} /> : <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:14 }}>{widgets.map(widget => <Card key={widget.id} style={{ minHeight:180, padding:20, gridColumn:widget.size === "wide" ? "span 2" : "span 1", position:"relative" }}><button onClick={() => save(widgets.filter(item => item.id !== widget.id))} title="Hapus widget" style={{ position:"absolute", top:12, right:12, border:0, background:"transparent", color:C.muted, cursor:"pointer" }}><Icon name="close" size={15} /></button><div style={{ width:38, height:38, display:"grid", placeItems:"center", borderRadius:10, background:`${widget.color}18`, marginBottom:16 }}><Icon name={WIDGET_CATALOG.find(entry => entry.type === widget.type)?.icon ?? "dashboard"} size={18} color={widget.color} /></div><b style={{ color:C.light }}>{widget.title}</b><div style={{ marginTop:24, color:C.muted, fontSize:12, lineHeight:1.55 }}>Belum ada telemetry.<br />Hubungkan perangkat dan pilih channel untuk menampilkan data.</div></Card>)}</div>}
+    {widgets.length === 0 ? <EmptyCanvas onAdd={() => setShowLibrary(true)} /> : <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:14 }}>
+      {widgets.map(widget => {
+        // Find matching key in payload
+        const key = Object.keys(aggregatedPayload).find(k => k.toLowerCase().includes("light") || k.toLowerCase().includes("ldr") || k.toLowerCase().includes("temp") || k.toLowerCase().includes("humidity") || k.toLowerCase().includes("val")) ?? Object.keys(aggregatedPayload)[0]
+        const val = key ? aggregatedPayload[key] : null
+
+        return (
+          <Card key={widget.id} style={{ minHeight:180, padding:20, gridColumn:widget.size === "wide" ? "span 2" : "span 1", position:"relative" }}>
+            <button onClick={() => save(widgets.filter(item => item.id !== widget.id))} title="Hapus widget" style={{ position:"absolute", top:12, right:12, border:0, background:"transparent", color:C.muted, cursor:"pointer" }}><Icon name="close" size={15} /></button>
+            <div style={{ width:38, height:38, display:"grid", placeItems:"center", borderRadius:10, background:`${widget.color}18`, marginBottom:16 }}><Icon name={WIDGET_CATALOG.find(entry => entry.type === widget.type)?.icon ?? "dashboard"} size={18} color={widget.color} /></div>
+            <b style={{ color:C.light }}>{widget.title}</b>
+            <div style={{ marginTop:16 }}>
+              {val !== null && val !== undefined ? (
+                <div>
+                  <div style={{ fontSize:32, fontWeight:800, color:widget.color, fontFamily:"DM Mono, monospace" }}>
+                    {typeof val === "number" ? val.toFixed(1) : String(val)}
+                  </div>
+                  <div style={{ fontSize:10, color:C.muted, marginTop:4 }}>
+                    Channel: <b style={{ color:C.light }}>{key}</b>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ color:C.muted, fontSize:12, lineHeight:1.55 }}>
+                  Belum ada telemetry.<br />Hubungkan perangkat dan pilih channel untuk menampilkan data.
+                </div>
+              )}
+            </div>
+          </Card>
+        )
+      })}
+    </div>}
     {showLibrary && <WidgetLibrary onAdd={add} onClose={() => setShowLibrary(false)} />}
   </div>
 }
