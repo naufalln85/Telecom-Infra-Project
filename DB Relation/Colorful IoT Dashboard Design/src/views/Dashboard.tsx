@@ -1,134 +1,573 @@
-import React, { useEffect, useState } from "react"
-import { dashboardApi, telemetryApi, type Project } from "@/lib/api"
-import { Btn, Card, Icon } from "@/components/Shared"
-import { C, WIDGET_CATALOG } from "@/lib/theme"
+import React, { useEffect, useState, useCallback } from "react"
+import { dashboardApi, devicesApi, telemetryApi, type Project } from "@/lib/api"
+import { Btn, Card, GaugeSVG, Icon, Toggle } from "@/components/Shared"
+import { C, DEFAULT_WIDGETS, WIDGET_CATALOG, type Widget, type WidgetType } from "@/lib/theme"
 
-type CanvasWidget = { id: string; type: string; title: string; color: string; size: "normal" | "wide" }
-const defaultColor = (index: number) => [C.coral, C.purple, C.magenta, C.amber, C.teal][index % 5]
-const createWidgetId = () => globalThis.crypto?.randomUUID?.() ?? `widget-${Date.now()}-${Math.random().toString(36).slice(2)}`
+// ── Sparkbar (progress bars at bottom of stat cards) ──────────────────────────
+function Sparkbar({ values, color }: { values: number[]; color: string }) {
+  const max = Math.max(...values, 1)
+  return (
+    <div style={{ display: "flex", gap: 3, height: 5, alignItems: "flex-end", marginTop: 14 }}>
+      {(values.length ? values : [0, 0, 0, 0, 0, 0, 0, 0]).slice(-8).map((v, i) => (
+        <div key={i} style={{ flex: 1, height: `${Math.max((v / max) * 100, 8)}%`, background: values.length ? color : `${color}22`, borderRadius: 2, transition: "height .3s" }} />
+      ))}
+    </div>
+  )
+}
 
-function WidgetLibrary({ onAdd, onClose }: { onAdd: (entry: (typeof WIDGET_CATALOG)[number]) => void; onClose: () => void }) {
+// ── SVG Line Chart ─────────────────────────────────────────────────────────────
+function LineChart({ data, color, height = 110 }: { data: number[]; color: string; height?: number }) {
+  if (!data.length) return (
+    <div style={{ height, border: "1px dashed var(--c-border)", borderRadius: 8, display: "grid", placeItems: "center", color: C.muted, fontSize: 12 }}>No data yet</div>
+  )
+  const max = Math.max(...data), min = Math.min(...data), range = max - min || 1
+  const W = 400, H = height
+  const pts = data.map((v, i) => {
+    const x = (i / Math.max(data.length - 1, 1)) * W
+    const y = H - ((v - min) / range) * (H - 10) - 5
+    return `${x},${y}`
+  }).join(" ")
+  const gid = `g${color.replace(/[^a-z0-9]/gi, "").slice(0, 8)}`
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height }}>
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      {data.length > 1 && <polygon points={`0,${H} ${pts} ${W},${H}`} fill={`url(#${gid})`} />}
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+// ── Bar Chart (power chart) ────────────────────────────────────────────────────
+function BarChart({ data, color, height = 72 }: { data: number[]; color: string; height?: number }) {
+  const src = data.length ? data.slice(-7) : [3.2, 4.1, 3.8, 4.5, 3.9, 4.2, 4.8]
+  const max = Math.max(...src, 1)
+  return (
+    <div style={{ height, display: "flex", gap: 4, alignItems: "flex-end" }}>
+      {src.map((v, i) => (
+        <div key={i} style={{ flex: 1, height: `${Math.max((v / max) * 100, 4)}%`, background: i === src.length - 1 ? color : `${color}66`, borderRadius: "3px 3px 0 0", transition: "height .3s" }} />
+      ))}
+    </div>
+  )
+}
+
+// ── Widget Library Sidebar ─────────────────────────────────────────────────────
+function WidgetLibrary({ onAdd, onClose }: { onAdd: (type: WidgetType) => void; onClose: () => void }) {
   const [query, setQuery] = useState("")
   const [category, setCategory] = useState("all")
-  const filtered = WIDGET_CATALOG.filter(entry => (category === "all" || entry.category === category) && `${entry.label} ${entry.desc}`.toLowerCase().includes(query.toLowerCase()))
-  return <div onClick={onClose} style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,.45)" }}><aside onClick={event => event.stopPropagation()} style={{ position:"absolute", top:0, right:0, bottom:0, width:360, maxWidth:"92vw", background:C.surface, borderLeft:`1px solid ${C.border}`, boxShadow:"-18px 0 54px rgba(0,0,0,.35)", display:"flex", flexDirection:"column" }}>
-    <div style={{ padding:20, borderBottom:`1px solid ${C.border}` }}><div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}><b style={{ fontSize:17, color:C.light }}>Widget Library</b><button onClick={onClose} style={{ border:0, background:"transparent", color:C.muted, cursor:"pointer" }}><Icon name="close" /></button></div><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Cari widget..." style={{ width:"100%", padding:"10px 12px", color:C.light, background:C.surface2, border:`1px solid ${C.border}`, borderRadius:8, outline:"none", fontFamily:"inherit" }} /><div style={{ display:"flex", gap:5, marginTop:12, flexWrap:"wrap" }}>{["all", "stats", "gauges", "sensors", "charts", "controls", "utilities"].map(item => <button key={item} onClick={() => setCategory(item)} style={{ border:0, borderRadius:7, padding:"5px 8px", background:category === item ? `${C.coral}22` : C.surface2, color:category === item ? C.coral : C.muted, cursor:"pointer", fontSize:10, fontWeight:700, textTransform:"capitalize" }}>{item}</button>)}</div></div>
-    <div style={{ overflowY:"auto", padding:14, display:"grid", gap:8 }}>{filtered.map(entry => <button key={entry.type} onClick={() => onAdd(entry)} style={{ display:"flex", textAlign:"left", gap:12, alignItems:"center", padding:12, border:`1px solid ${C.border}`, borderRadius:11, background:C.surface2, cursor:"pointer", fontFamily:"inherit" }}><div style={{ width:34, height:34, display:"grid", placeItems:"center", borderRadius:9, background:`${C.coral}18` }}><Icon name={entry.icon} size={16} color={C.coral} /></div><div><b style={{ color:C.light, fontSize:12 }}>{entry.label}</b><div style={{ color:C.muted, fontSize:10, marginTop:3 }}>{entry.desc}</div></div></button>)}</div>
-  </aside></div>
+  const filtered = WIDGET_CATALOG.filter(e => (category === "all" || e.category === category) && `${e.label} ${e.desc}`.toLowerCase().includes(query.toLowerCase()))
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,.5)", backdropFilter: "blur(2px)" }}>
+      <aside onClick={e => e.stopPropagation()} style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 360, maxWidth: "92vw", background: C.surface, borderLeft: `1px solid ${C.border}`, boxShadow: "-16px 0 48px rgba(0,0,0,.4)", display: "flex", flexDirection: "column" }}>
+        <div style={{ padding: 20, borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <b style={{ fontSize: 17, color: C.light }}>Widget Library</b>
+            <button onClick={onClose} style={{ border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><Icon name="close" /></button>
+          </div>
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Cari widget..."
+            style={{ width: "100%", padding: "9px 12px", color: C.light, background: C.surface2, border: `1px solid ${C.border}`, borderRadius: 8, outline: "none", fontFamily: "inherit", boxSizing: "border-box" as const }} />
+          <div style={{ display: "flex", gap: 5, marginTop: 12, flexWrap: "wrap" as const }}>
+            {["all", "stats", "gauges", "sensors", "charts", "controls", "utilities"].map(cat => (
+              <button key={cat} onClick={() => setCategory(cat)} style={{ border: 0, borderRadius: 7, padding: "4px 8px", background: category === cat ? `${C.coral}22` : C.surface2, color: category === cat ? C.coral : C.muted, cursor: "pointer", fontSize: 10, fontWeight: 700, textTransform: "capitalize" as const, fontFamily: "inherit" }}>{cat}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ overflowY: "auto", padding: 14, display: "grid", gap: 8 }}>
+          {filtered.map(entry => (
+            <button key={entry.type} onClick={() => { onAdd(entry.type); onClose() }} style={{ display: "flex", textAlign: "left", gap: 12, alignItems: "center", padding: 12, border: `1px solid ${C.border}`, borderRadius: 11, background: C.surface2, cursor: "pointer", fontFamily: "inherit", transition: "border-color .12s" }}>
+              <div style={{ width: 34, height: 34, display: "grid", placeItems: "center", borderRadius: 9, background: `${C.coral}18`, flexShrink: 0 }}>
+                <Icon name={entry.icon} size={15} color={C.coral} />
+              </div>
+              <div>
+                <b style={{ color: C.light, fontSize: 12 }}>{entry.label}</b>
+                <div style={{ color: C.muted, fontSize: 10, marginTop: 3 }}>{entry.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </aside>
+    </div>
+  )
 }
 
+// ── Stateful widget sub-components (hooks-safe) ───────────────────────────────
+function ChartTelemetryWidget({ color, allPayloads }: { color: string; allPayloads: Record<string, number[]> }) {
+  const keys = Object.keys(allPayloads)
+  const [activeKey, setActiveKey] = useState(keys[0] ?? "")
+  React.useEffect(() => { if (!activeKey && keys.length) setActiveKey(keys[0]) }, [keys.join(",")])
+  const chartData = activeKey && allPayloads[activeKey] ? allPayloads[activeKey].slice(-20) : []
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>TELEMETRY STREAM</div>
+        <div style={{ display: "flex", gap: 5 }}>
+          {keys.slice(0, 4).map(k => (
+            <button key={k} onClick={() => setActiveKey(k)} style={{ fontSize: 9, padding: "3px 7px", borderRadius: 4, border: 0, cursor: "pointer", background: activeKey === k ? `${color}22` : "transparent", color: activeKey === k ? color : C.muted, fontFamily: "inherit", fontWeight: 700, textTransform: "uppercase" as const }}>{k}</button>
+          ))}
+        </div>
+      </div>
+      <LineChart data={chartData} color={color} height={110} />
+    </div>
+  )
+}
+
+function SwitchPanelWidget({ color }: { color: string }) {
+  const [relays, setRelays] = useState([{ name: "Main Light", on: false }, { name: "Fan", on: false }, { name: "Pump", on: false }])
+  return (
+    <div>
+      <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>RELAY CONTROL</div>
+      {relays.map((relay, i) => (
+        <div key={relay.name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: i < relays.length - 1 ? `1px solid ${C.border}` : undefined }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: relay.on ? C.teal : C.muted, transition: "background .2s", boxShadow: relay.on ? `0 0 6px ${C.teal}` : "none" }} />
+            <span style={{ fontSize: 13, color: C.light }}>{relay.name}</span>
+          </div>
+          <Toggle on={relay.on} onChange={() => setRelays(prev => prev.map((r, j) => j === i ? { ...r, on: !r.on } : r))} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DimmerWidget({ color }: { color: string }) {
+  const [val, setVal] = useState(70)
+  return (
+    <div>
+      <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 10 }}>DIMMER / PWM</div>
+      <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: "DM Mono, monospace", marginBottom: 12 }}>{val}%</div>
+      <input type="range" min={0} max={100} value={val} onChange={e => setVal(+e.target.value)}
+        style={{ width: "100%", accentColor: color }} />
+      <div style={{ display: "flex", justifyContent: "space-between", color: C.muted, fontSize: 10, marginTop: 4 }}>
+        <span>0%</span><span>100%</span>
+      </div>
+    </div>
+  )
+}
+
+// ── Main Widget Renderer ───────────────────────────────────────────────────────
+interface WidgetCardProps {
+  widget: Widget
+  onRemove: () => void
+  telemetryEvents: { device_id: number; payload: Record<string, any>; received_at: string; protocol: string }[]
+  devices: { id: number; name: string }[]
+}
+
+function WidgetCard({ widget, onRemove, telemetryEvents, devices }: WidgetCardProps) {
+  const color = (C as any)[widget.config.colorTheme] as string ?? C.coral
+  const catEntry = WIDGET_CATALOG.find(e => e.type === widget.type)
+
+  // Aggregate payload values
+  const allPayloads: Record<string, number[]> = {}
+  for (const ev of telemetryEvents) {
+    for (const [k, v] of Object.entries(ev.payload ?? {})) {
+      if (typeof v === "number") { if (!allPayloads[k]) allPayloads[k] = []; allPayloads[k].push(v) }
+    }
+  }
+  const getLatest = (pat: string) => {
+    const k = Object.keys(allPayloads).find(k => k.toLowerCase().includes(pat.toLowerCase()))
+    const arr = k ? allPayloads[k] : []
+    return arr.length ? arr[arr.length - 1] : 0
+  }
+  const getAll = (pat: string) => {
+    const k = Object.keys(allPayloads).find(k => k.toLowerCase().includes(pat.toLowerCase()))
+    return k ? allPayloads[k] : []
+  }
+  const getAvg = (pat: string) => { const a = getAll(pat); return a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0 }
+
+  const { type } = widget
+
+  const renderInner = () => {
+    // ── STATS ─────────────────────────────────────────────────────────────
+    if (type === "stat-devices") {
+      const online = devices.filter(d => { const ev = telemetryEvents.find(e => e.device_id === d.id); return ev && Date.now() - new Date(ev.received_at).getTime() < 120_000 }).length
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>DEVICES ONLINE</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{online} <span style={{ fontSize: 14, color: C.muted }}>Active</span></div>
+        <Sparkbar values={devices.length ? [online * 0.3, online * 0.5, online * 0.7, online * 0.8, online, online, online, online] : []} color={color} />
+      </>)
+    }
+    if (type === "stat-messages") {
+      const count = telemetryEvents.length
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>MESSAGES TODAY</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>
+          {count > 999 ? `${(count / 1000).toFixed(1)}k` : count} <span style={{ fontSize: 13, color: C.muted }}>/100k</span>
+        </div>
+        <Sparkbar values={Array.from({ length: 8 }, (_, i) => Math.round((count / 8) * (i + 1)))} color={color} />
+      </>)
+    }
+    if (type === "stat-temp") {
+      const avg = getAvg("temp") || getAvg("ldr")
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>AVG TEMPERATURE</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{avg.toFixed(1)} <span style={{ fontSize: 14, color: C.muted }}>Avg °C</span></div>
+        <Sparkbar values={getAll("temp").slice(-8)} color={color} />
+      </>)
+    }
+    if (type === "stat-power") {
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>POWER USAGE</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>4.8 <span style={{ fontSize: 14, color: C.muted }}>kWh</span></div>
+        <Sparkbar values={[3, 4, 3.5, 4.2, 4.8, 4.1, 4.5, 4.8]} color={color} />
+      </>)
+    }
+    if (type === "stat-voltage") {
+      const v = getLatest("volt") || 220
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>VOLTAGE</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{v.toFixed(1)} <span style={{ fontSize: 14, color: C.muted }}>V</span></div>
+        <Sparkbar values={[220, 221, 220, 219, 222, 220, 221, v]} color={color} />
+      </>)
+    }
+
+    // ── GAUGES ─────────────────────────────────────────────────────────────
+    if (type === "gauge-temp") {
+      const v = getLatest("temp") || getLatest("ldr")
+      return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>TEMPERATURE</div>
+        <GaugeSVG value={Math.round(v)} max={widget.config.max ?? 50} label="Temperature" color={color} unit={widget.config.unit ?? "°C"} />
+        <div style={{ fontSize: 14, fontWeight: 800, color, fontFamily: "DM Mono, monospace" }}>{v.toFixed(1)}°C</div>
+        <div style={{ fontSize: 10, color: C.muted }}>0 – {widget.config.max ?? 50} °C</div>
+      </div>)
+    }
+    if (type === "gauge-humidity") {
+      const v = getLatest("humid") || getLatest("light")
+      return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>HUMIDITY</div>
+        <GaugeSVG value={Math.round(v)} max={100} label="Humidity" color={color} unit="%" />
+        <div style={{ fontSize: 14, fontWeight: 800, color, fontFamily: "DM Mono, monospace" }}>{v.toFixed(1)}%</div>
+        <div style={{ fontSize: 10, color: C.muted }}>0 – 100 %</div>
+      </div>)
+    }
+    if (type === "gauge-co2") {
+      const v = getLatest("co2")
+      return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>CO₂ / AIR QUALITY</div>
+        <GaugeSVG value={Math.round(v)} max={2000} label="CO₂" color={color} unit="ppm" />
+      </div>)
+    }
+    if (type === "gauge-pressure") {
+      const v = getLatest("pressure") || 1013
+      return (<div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>PRESSURE</div>
+        <GaugeSVG value={Math.round(v)} max={1100} label="Pressure" color={color} unit="hPa" />
+      </div>)
+    }
+
+    // ── SENSORS ────────────────────────────────────────────────────────────
+    if (type === "sensor-ldr") {
+      const v = getLatest("ldr") || getLatest("ldr_lux") || getLatest("light")
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>LIGHT / LDR SENSOR</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{v.toFixed(0)} <span style={{ fontSize: 13, color: C.muted }}>lux</span></div>
+        <Sparkbar values={(getAll("ldr").length ? getAll("ldr") : getAll("light")).slice(-8)} color={color} />
+      </>)
+    }
+    if (type === "sensor-motion") {
+      const v = getLatest("motion")
+      return (<div style={{ textAlign: "center", padding: "10px 0" }}>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>MOTION SENSOR</div>
+        <div style={{ width: 56, height: 56, borderRadius: "50%", margin: "0 auto 10px", background: v > 0 ? `${C.coral}33` : `${color}18`, display: "grid", placeItems: "center", boxShadow: v > 0 ? `0 0 18px ${C.coral}66` : "none", transition: "all .3s" }}>
+          <Icon name="eye" size={22} color={v > 0 ? C.coral : C.muted} />
+        </div>
+        <div style={{ fontWeight: 800, fontSize: 14, color: v > 0 ? C.coral : C.muted }}>{v > 0 ? "MOTION DETECTED" : "No Motion"}</div>
+      </div>)
+    }
+    if (type === "sensor-soil") {
+      const v = getLatest("soil") || getLatest("moisture")
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>SOIL MOISTURE</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 8px" }}>{v.toFixed(1)} <span style={{ fontSize: 13, color: C.muted }}>%</span></div>
+        <div style={{ height: 6, background: `${color}22`, borderRadius: 3, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${Math.min(v, 100)}%`, background: color, transition: "width .5s", borderRadius: 3 }} />
+        </div>
+      </>)
+    }
+    if (type === "sensor-wind") {
+      const v = getLatest("wind")
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>WIND SPEED</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{v.toFixed(1)} <span style={{ fontSize: 13, color: C.muted }}>km/h</span></div>
+        <Sparkbar values={getAll("wind").slice(-8)} color={color} />
+      </>)
+    }
+
+    // ── CHARTS ─────────────────────────────────────────────────────────────
+    if (type === "chart-telemetry" || type === "chart-realtime") {
+      return <ChartTelemetryWidget color={color} allPayloads={allPayloads} />
+    }
+    if (type === "chart-power") {
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 10 }}>POWER CHART</div>
+        <BarChart data={getAll("power")} color={color} height={70} />
+        <div style={{ display: "flex", justifyContent: "space-between", color: C.muted, fontSize: 10, marginTop: 5 }}>
+          {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => <span key={i}>{d}</span>)}
+        </div>
+      </>)
+    }
+
+    // ── CONTROLS ───────────────────────────────────────────────────────────
+    if (type === "switch-panel" || type === "relay-single") {
+      return <SwitchPanelWidget color={color} />
+    }
+    if (type === "dimmer") {
+      return <DimmerWidget color={color} />
+    }
+
+    // ── UTILITIES ──────────────────────────────────────────────────────────
+    if (type === "device-list") {
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>DEVICE MANAGER</div>
+        {devices.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 12 }}>No devices registered</div>
+        ) : (
+          <div style={{ display: "grid", gap: 5 }}>
+            {devices.map(dev => {
+              const ev = telemetryEvents.find(e => e.device_id === dev.id)
+              const online = ev && Date.now() - new Date(ev.received_at).getTime() < 120_000
+              return (
+                <div key={dev.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ width: 7, height: 7, borderRadius: "50%", background: online ? C.teal : C.muted, flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 12, color: C.light }}>{dev.name}</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: online ? C.teal : C.muted, background: `${online ? C.teal : C.muted}18`, padding: "2px 7px", borderRadius: 4 }}>{online ? "ONLINE" : "READY"}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </>)
+    }
+    if (type === "alert-feed") {
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 10 }}>ALERT FEED</div>
+        {telemetryEvents.length === 0 ? <div style={{ color: C.muted, fontSize: 12 }}>No alerts triggered</div> : (
+          <div style={{ display: "grid", gap: 6 }}>
+            {telemetryEvents.slice(0, 4).map((ev, i) => (
+              <div key={i} style={{ display: "flex", gap: 7, fontSize: 11, alignItems: "flex-start" }}>
+                <Icon name="alert" size={12} color={C.amber} />
+                <span style={{ color: C.light }}>Device #{ev.device_id}: {JSON.stringify(ev.payload)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </>)
+    }
+    if (type === "voltage-meter") {
+      const v = getLatest("volt") || 220, c = getLatest("current") || 1.2
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 10 }}>VOLTAGE METER</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {[["Voltage", v.toFixed(1), "V"], ["Current", c.toFixed(2), "A"], ["Power", (v * c).toFixed(0), "W"]].map(([label, val, unit]) => (
+            <div key={label as string} style={{ textAlign: "center", padding: "10px 6px", background: C.surface2, borderRadius: 8 }}>
+              <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase" }}>{label}</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "4px 0 2px" }}>{val}</div>
+              <div style={{ fontSize: 10, color: C.muted }}>{unit}</div>
+            </div>
+          ))}
+        </div>
+      </>)
+    }
+    if (type === "water-flow") {
+      const v = getLatest("flow") || getLatest("water")
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>WATER FLOW</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: "DM Mono, monospace", margin: "10px 0 4px" }}>{v.toFixed(2)} <span style={{ fontSize: 13, color: C.muted }}>L/min</span></div>
+        <Sparkbar values={getAll("flow").slice(-8)} color={color} />
+      </>)
+    }
+    if (type === "terminal") {
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>SERIAL TERMINAL</div>
+        <div style={{ background: C.surface2, borderRadius: 8, padding: "8px 12px", fontFamily: "DM Mono, monospace", fontSize: 10, color: C.teal, minHeight: 70, maxHeight: 100, overflowY: "auto" }}>
+          {telemetryEvents.slice(0, 5).map((ev, i) => <div key={i}>{`> #${ev.device_id}[${ev.protocol}]: ${JSON.stringify(ev.payload)}`}</div>)}
+          {!telemetryEvents.length && <span style={{ color: C.muted }}>Waiting for device data...</span>}
+        </div>
+      </>)
+    }
+    if (type === "map") {
+      return (<>
+        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 8 }}>GPS MAP</div>
+        <div style={{ height: 90, background: C.surface2, borderRadius: 8, display: "grid", placeItems: "center", color: C.muted, fontSize: 12 }}>
+          <div style={{ textAlign: "center" }}><Icon name="map" size={22} color={C.muted} /><p style={{ margin: "5px 0 0" }}>GPS not available</p></div>
+        </div>
+      </>)
+    }
+    // fallback
+    return <div style={{ color: C.muted, fontSize: 13 }}>Widget: <code style={{ color: C.light }}>{type}</code></div>
+  }
+
+  return (
+    <div style={{ gridColumn: widget.colSpan === 2 ? "span 2" : widget.colSpan === 4 ? "span 4" : "span 1" }}>
+      <Card style={{ padding: 20, minHeight: 180, height: "100%" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}18`, display: "grid", placeItems: "center", flexShrink: 0 }}>
+              <Icon name={catEntry?.icon ?? "dashboard"} size={13} color={color} />
+            </div>
+            <b style={{ fontSize: 12, color: C.light }}>{widget.title}</b>
+          </div>
+          <button onClick={onRemove} title="Remove widget" style={{ border: 0, background: "transparent", color: C.muted, cursor: "pointer", padding: 2, transition: "color .12s" }}>
+            <Icon name="close" size={13} />
+          </button>
+        </div>
+        {renderInner()}
+      </Card>
+    </div>
+  )
+}
+
+// ── Empty Canvas ───────────────────────────────────────────────────────────────
 function EmptyCanvas({ onAdd }: { onAdd: () => void }) {
-  return <Card style={{ minHeight:450, display:"grid", placeItems:"center", textAlign:"center", padding:36 }}><div><div style={{ width:64, height:64, display:"grid", placeItems:"center", margin:"0 auto 18px", borderRadius:18, background:`linear-gradient(135deg,${C.coral}22,${C.purple}22)` }}><Icon name="dashboard" size={30} color={C.coral} /></div><h2 style={{ color:C.light, margin:"0 0 10px" }}>Canvas Anda masih kosong</h2><p style={{ maxWidth:440, color:C.muted, fontSize:13, lineHeight:1.7, margin:"0 auto 20px" }}>Tidak ada widget atau data dummy. Pilih widget yang ingin dipakai, lalu hubungkan perangkat dan channel saat IoT Anda sudah tersedia.</p><Btn icon="plus" onClick={onAdd}>Tambah widget pertama</Btn></div></Card>
+  return (
+    <Card style={{ minHeight: 440, display: "grid", placeItems: "center", textAlign: "center", padding: 36 }}>
+      <div>
+        <div style={{ width: 64, height: 64, display: "grid", placeItems: "center", margin: "0 auto 18px", borderRadius: 18, background: `linear-gradient(135deg,${C.coral}22,${C.purple}22)` }}>
+          <Icon name="dashboard" size={28} color={C.coral} />
+        </div>
+        <h2 style={{ color: C.light, margin: "0 0 10px" }}>Canvas Anda masih kosong</h2>
+        <p style={{ maxWidth: 440, color: C.muted, fontSize: 13, lineHeight: 1.7, margin: "0 auto 20px" }}>
+          Klik <b style={{ color: C.light }}>+ Add Widget</b> untuk menambahkan widget ke dashboard. Widget akan menampilkan data telemetri real-time dari perangkat IoT Anda.
+        </p>
+        <Btn icon="plus" onClick={onAdd}>Tambah widget pertama</Btn>
+      </div>
+    </Card>
+  )
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// DASHBOARD VIEW
+// ═══════════════════════════════════════════════════════════════════════════════
 export default function DashboardView({ project }: { project: Project | null }) {
-  const [widgets, setWidgets] = useState<CanvasWidget[]>([])
+  const [widgets, setWidgets] = useState<Widget[]>([])
   const [telemetryEvents, setTelemetryEvents] = useState<any[]>([])
+  const [devices, setDevices] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [showLibrary, setShowLibrary] = useState(false)
 
-  const loadTelemetry = React.useCallback(async () => {
+  const loadTelemetry = useCallback(async () => {
     if (!project) return
     try {
-      const events = await telemetryApi.latest(project.id)
-      setTelemetryEvents(events)
-    } catch {
-      // silent
-    }
+      const [events, devList] = await Promise.all([
+        telemetryApi.latest(project.id).catch(() => []),
+        devicesApi.list(project.id).catch(() => [])
+      ])
+      setTelemetryEvents(events as any[])
+      setDevices(devList)
+    } catch { }
   }, [project?.id])
 
   useEffect(() => {
     setWidgets([]); setMessage("")
     if (!project) return
     setLoading(true)
-
     Promise.all([
-      dashboardApi.get(project.id),
-      telemetryApi.latest(project.id).catch(() => [])
-    ]).then(([saved, events]) => {
-      const valid: CanvasWidget[] = Array.isArray(saved)
-        ? saved
-            .filter((item): item is CanvasWidget => Boolean(item && typeof item.id === "string" && typeof item.type === "string" && typeof item.title === "string"))
-            .map((item, index): CanvasWidget => ({ ...item, color: typeof item.color === "string" ? item.color : defaultColor(index), size: item.size === "wide" ? "wide" : "normal" }))
-        : []
-      setWidgets(valid)
-      setTelemetryEvents(events)
-    }).catch(error => setMessage(error instanceof Error ? error.message : "Gagal memuat dashboard.")).finally(() => setLoading(false))
+      dashboardApi.get(project.id).catch(() => null),
+      telemetryApi.latest(project.id).catch(() => []),
+      devicesApi.list(project.id).catch(() => [])
+    ]).then(([saved, events, devList]) => {
+      // Load saved widgets or fallback to defaults
+      let loaded: Widget[] = DEFAULT_WIDGETS.filter(w => w.visible)
+      if (Array.isArray(saved) && saved.length > 0) {
+        // Try to map saved to Widget type
+        const valid = (saved as any[]).filter((w: any) => w && typeof w.id === "string" && typeof w.type === "string")
+        if (valid.length > 0) {
+          loaded = valid.map((w: any): Widget => ({
+            id: w.id,
+            type: w.type,
+            title: w.title ?? w.type,
+            colSpan: w.colSpan ?? w.defaultColSpan ?? 1,
+            rowSpan: w.rowSpan ?? 1,
+            visible: w.visible ?? true,
+            config: w.config ?? { device: "All Devices", channel: "temperature", unit: "", colorTheme: "coral", min: 0, max: 100 }
+          }))
+        }
+      }
+      setWidgets(loaded)
+      setTelemetryEvents(events as any[])
+      setDevices(devList)
+    }).catch(e => setMessage(e instanceof Error ? e.message : "Gagal memuat dashboard."))
+      .finally(() => setLoading(false))
 
     const timer = setInterval(loadTelemetry, 5000)
     return () => clearInterval(timer)
   }, [project?.id, loadTelemetry])
 
-  const save = async (next: CanvasWidget[]) => {
+  const save = async (next: Widget[]) => {
     if (!project) return
-    setWidgets(next); setMessage("")
+    setWidgets(next)
     try { await dashboardApi.save(project.id, next as unknown as Record<string, unknown>[]) }
-    catch (error) { setMessage(error instanceof Error ? error.message : "Gagal menyimpan dashboard.") }
-  }
-  const add = (entry: (typeof WIDGET_CATALOG)[number]) => {
-    const widget: CanvasWidget = { id:createWidgetId(), type:entry.type, title:entry.label, color:defaultColor(widgets.length), size:entry.defaultColSpan > 1 ? "wide" : "normal" }
-    save([...widgets, widget]); setShowLibrary(false)
+    catch (e) { setMessage(e instanceof Error ? e.message : "Gagal menyimpan dashboard.") }
   }
 
-  // Aggregate all payloads from latest events
-  const aggregatedPayload: Record<string, any> = {}
-  let latestTime: string | null = null
-  for (const ev of telemetryEvents) {
-    if (ev.payload && typeof ev.payload === "object") {
-      Object.assign(aggregatedPayload, ev.payload)
+  const addWidget = (type: WidgetType) => {
+    const entry = WIDGET_CATALOG.find(e => e.type === type)
+    if (!entry) return
+    const existing = DEFAULT_WIDGETS.find(w => w.type === type)
+    const newWidget: Widget = existing ? { ...existing, id: `w${Date.now()}` } : {
+      id: `w${Date.now()}`, type, title: entry.label,
+      colSpan: entry.defaultColSpan, rowSpan: entry.defaultRowSpan,
+      visible: true, config: { device: "All Devices", channel: "temperature", unit: "", colorTheme: "coral", min: 0, max: 100 }
     }
-    if (ev.received_at && (!latestTime || new Date(ev.received_at) > new Date(latestTime))) {
-      latestTime = ev.received_at
-    }
+    save([...widgets, newWidget])
   }
 
-  if (!project) return <Empty title="Pilih atau buat project" text="Dashboard dibuat terpisah untuk setiap project." />
-  if (loading) return <div style={{ color:C.muted }}>Memuat canvas dashboard...</div>
-  return <div>
-    <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:20 }}>
-      <Btn variant="ghost" icon="refresh" onClick={loadTelemetry}>Refresh Live Data</Btn>
-      <Btn variant="ghost" icon="plus" onClick={() => setShowLibrary(true)}>Add Widget</Btn>
-      <span style={{ marginLeft:"auto", color:C.muted, fontSize:11 }}>
-        {widgets.length} widget{widgets.length === 1 ? "" : "s"} active {latestTime ? `· Live: ${new Date(latestTime).toLocaleTimeString()}` : ""}
-      </span>
+  const latestTime = telemetryEvents[0]?.received_at ? new Date(telemetryEvents[0].received_at).toLocaleTimeString() : null
+
+  if (!project) return (
+    <Card style={{ padding: 42, textAlign: "center" }}>
+      <Icon name="dashboard" size={32} color={C.muted} />
+      <h3 style={{ color: C.light }}>Pilih atau buat project</h3>
+      <p style={{ color: C.muted, fontSize: 13 }}>Dashboard dibuat terpisah untuk setiap project.</p>
+    </Card>
+  )
+  if (loading) return <div style={{ color: C.muted, padding: 40, textAlign: "center" }}>Memuat canvas dashboard...</div>
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <Btn variant="ghost" icon="edit" onClick={() => {}}>Edit Layout</Btn>
+        <Btn variant="ghost" icon="plus" onClick={() => setShowLibrary(true)}>+ Add Widget</Btn>
+        <span style={{ marginLeft: "auto", color: C.muted, fontSize: 11 }}>
+          {widgets.length} widget{widgets.length === 1 ? "" : "s"} active
+          {latestTime ? ` · Live: ${latestTime}` : ""}
+        </span>
+        <Btn variant="ghost" icon="refresh" onClick={loadTelemetry}>Refresh</Btn>
+      </div>
+
+      {message && <p style={{ color: C.coral, fontSize: 12, marginBottom: 10 }}>{message}</p>}
+
+      {widgets.length === 0
+        ? <EmptyCanvas onAdd={() => setShowLibrary(true)} />
+        : <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
+            {widgets.map(widget => (
+              <WidgetCard
+                key={widget.id}
+                widget={widget}
+                onRemove={() => save(widgets.filter(w => w.id !== widget.id))}
+                telemetryEvents={telemetryEvents}
+                devices={devices}
+              />
+            ))}
+          </div>
+      }
+
+      {showLibrary && <WidgetLibrary onAdd={addWidget} onClose={() => setShowLibrary(false)} />}
     </div>
-    {message && <p style={{ color:C.coral, fontSize:12 }}>{message}</p>}
-    {widgets.length === 0 ? <EmptyCanvas onAdd={() => setShowLibrary(true)} /> : <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(0, 1fr))", gap:14 }}>
-      {widgets.map(widget => {
-        // Find matching key in payload
-        const key = Object.keys(aggregatedPayload).find(k => k.toLowerCase().includes("light") || k.toLowerCase().includes("ldr") || k.toLowerCase().includes("temp") || k.toLowerCase().includes("humidity") || k.toLowerCase().includes("val")) ?? Object.keys(aggregatedPayload)[0]
-        const val = key ? aggregatedPayload[key] : null
-
-        return (
-          <Card key={widget.id} style={{ minHeight:180, padding:20, gridColumn:widget.size === "wide" ? "span 2" : "span 1", position:"relative" }}>
-            <button onClick={() => save(widgets.filter(item => item.id !== widget.id))} title="Hapus widget" style={{ position:"absolute", top:12, right:12, border:0, background:"transparent", color:C.muted, cursor:"pointer" }}><Icon name="close" size={15} /></button>
-            <div style={{ width:38, height:38, display:"grid", placeItems:"center", borderRadius:10, background:`${widget.color}18`, marginBottom:16 }}><Icon name={WIDGET_CATALOG.find(entry => entry.type === widget.type)?.icon ?? "dashboard"} size={18} color={widget.color} /></div>
-            <b style={{ color:C.light }}>{widget.title}</b>
-            <div style={{ marginTop:16 }}>
-              {val !== null && val !== undefined ? (
-                <div>
-                  <div style={{ fontSize:32, fontWeight:800, color:widget.color, fontFamily:"DM Mono, monospace" }}>
-                    {typeof val === "number" ? val.toFixed(1) : String(val)}
-                  </div>
-                  <div style={{ fontSize:10, color:C.muted, marginTop:4 }}>
-                    Channel: <b style={{ color:C.light }}>{key}</b>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ color:C.muted, fontSize:12, lineHeight:1.55 }}>
-                  Belum ada telemetry.<br />Hubungkan perangkat dan pilih channel untuk menampilkan data.
-                </div>
-              )}
-            </div>
-          </Card>
-        )
-      })}
-    </div>}
-    {showLibrary && <WidgetLibrary onAdd={add} onClose={() => setShowLibrary(false)} />}
-  </div>
+  )
 }
 
 export function Empty({ title, text }: { title: string; text: string }) {
-  return <Card style={{ padding:42, textAlign:"center" }}><Icon name="dashboard" size={32} color={C.muted} /><h3 style={{ color:C.light }}>{title}</h3><p style={{ color:C.muted, fontSize:13 }}>{text}</p></Card>
+  return (
+    <Card style={{ padding: 42, textAlign: "center" }}>
+      <Icon name="dashboard" size={32} color={C.muted} />
+      <h3 style={{ color: C.light }}>{title}</h3>
+      <p style={{ color: C.muted, fontSize: 13 }}>{text}</p>
+    </Card>
+  )
 }

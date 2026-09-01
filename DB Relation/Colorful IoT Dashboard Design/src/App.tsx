@@ -186,14 +186,7 @@ function AppShell() {
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
       <aside style={{ width: sidebar ? 216 : 60, flexShrink:0, transition:'width .22s', background: C.bg, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ padding:'14px 14px', display:'flex', alignItems:'center', gap:10, borderBottom:`1px solid ${C.border}` }}>
-          <div style={{ width:32, height:32, flexShrink:0, borderRadius:8, background:`linear-gradient(135deg, ${C.coral}, ${C.purple})`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
-              <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
-              <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-              <circle cx="12" cy="20" r="1" fill="#fff" stroke="none"/>
-            </svg>
-          </div>
+          <img src="/logo.png" alt="Yugma" style={{ width:32, height:32, objectFit:'contain', flexShrink:0, borderRadius:6 }} />
           {sidebar && <div style={{ flex:1, minWidth:0 }}><div style={{ fontWeight:800, fontSize:14, color: C.light }}>Yugma</div><div style={{ fontSize:9, color: C.muted, marginTop:1 }}>IoT Platform</div></div>}
           <button onClick={()=>setSidebar(p=>!p)} style={{ background:'none', border:'none', color: C.muted, cursor:'pointer', padding:2, flexShrink:0, transition:'color .15s' }}
             onMouseEnter={e=>e.currentTarget.style.color=C.light} onMouseLeave={e=>e.currentTarget.style.color=C.muted}>
@@ -322,7 +315,7 @@ function AppShell() {
         </header>
 
         <main style={{ flex:1, overflowY:'auto', padding:22 }}>
-          {nav === 'home'        && <HomeView project={activeProject} onNavigate={key => setNav(key)} />}
+          {nav === 'home'        && <HomeView project={activeProject} account={account} onNavigate={key => setNav(key)} />}
           {nav === 'dashboard'   && <DashboardView project={activeProject} />}
           {nav === 'sensors'     && <SensorManagementView project={activeProject} onNavigate={key => setNav(key)} />}
           {nav === 'devices'     && <WorkspaceDevicesView project={activeProject} />}
