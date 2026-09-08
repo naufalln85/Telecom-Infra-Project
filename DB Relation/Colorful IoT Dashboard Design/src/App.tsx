@@ -92,6 +92,7 @@ function AppShell() {
   const [notifications, setNotifications] = useState(3)
   const [time, setTime] = useState(new Date())
   const [isDark, setIsDark] = useState(true)
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false)
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000)
@@ -185,6 +186,56 @@ function AppShell() {
       {showProject && <ProjectModal projects={projects} active={activeProject} onSelect={p=>{setActiveProject(p);setShowProject(false)}} onCreate={async name=>{const p=await projectsApi.create(name);setProjects(x=>[...x,p]);setActiveProject(p)}} onDelete={async id=>{await projectsApi.remove(id); const remaining=projects.filter(p=>p.id!==id); setProjects(remaining); setActiveProject(active=>active?.id===id ? (remaining[0] ?? null) : active)}} onClose={()=>setShowProject(false)} />}
 
       {/* ── Sidebar ──────────────────────────────────────────────────────── */}
+      {/* ── Mobile Drawer Overlay ────────────────────────────────────────── */}
+      {isMobileDrawerOpen && (
+        <div className="mobile-drawer-overlay" onClick={() => setIsMobileDrawerOpen(false)}>
+          <div className="mobile-drawer" onClick={e => e.stopPropagation()}>
+            {/* Drawer Header */}
+            <div style={{ padding:'14px', display:'flex', alignItems:'center', gap:10, borderBottom:`1px solid ${C.border}` }}>
+              <img src={YUGMA_LOGO_B64} alt="Yugma IoT" style={{ width:30, height:30, objectFit:'contain', flexShrink:0 }} />
+              <div style={{ flex:1 }}><div style={{ fontWeight:800, fontSize:14, color:C.light }}>Yugma</div><div style={{ fontSize:9, color:C.muted }}>IoT Platform</div></div>
+              <button onClick={() => setIsMobileDrawerOpen(false)} style={{ background:'none', border:'none', color:C.muted, cursor:'pointer', padding:4 }}><Icon name="close" size={15} /></button>
+            </div>
+            {/* Active project info */}
+            <button onClick={() => { setShowProject(true); setIsMobileDrawerOpen(false) }} style={{ margin:'10px', padding:'10px 12px', borderRadius:10, background:`linear-gradient(135deg,${C.coral}18,${C.purple}18)`, border:`1px solid ${C.coral}33`, cursor:'pointer', textAlign:'left', fontFamily:'Outfit,sans-serif', width:'calc(100% - 20px)' }}>
+              <div style={{ fontSize:9, color:C.coral, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase' }}>Active Project</div>
+              <div style={{ fontSize:12, color:C.light, fontWeight:700, margin:'3px 0' }}>{activeProject?.name ?? 'Select a project'}</div>
+              <div style={{ fontSize:9, color:C.muted }}>{activeProject ? '● Project selected' : 'Create a project to begin'}</div>
+            </button>
+            {/* Drawer Nav */}
+            <nav style={{ flex:1, padding:'4px 6px', overflowY:'auto' }}>
+              {NAV.map(item => {
+                const active = nav === item.key
+                return (
+                  <button key={item.key} onClick={() => { setNav(item.key); setIsMobileDrawerOpen(false) }} style={{
+                    width:'100%', display:'flex', alignItems:'center', gap:10,
+                    padding:'11px 12px', borderRadius:9, border:'none', cursor:'pointer',
+                    background: active ? `linear-gradient(90deg,${C.coral}22,${C.purple}15)` : 'transparent',
+                    color: active ? C.coral : C.muted,
+                    marginBottom:2, transition:'all .15s', textAlign:'left',
+                    borderLeft: active ? `2px solid ${C.coral}` : '2px solid transparent',
+                    fontFamily:'Outfit,sans-serif',
+                  }}>
+                    <Icon name={item.icon} size={15} />
+                    <span style={{ fontSize:13, fontWeight: active ? 700 : 400 }}>{item.label}</span>
+                    {item.badge !== undefined && <span style={{ fontSize:9, background:C.surface3, color:C.muted, padding:'1px 5px', borderRadius:8, fontWeight:700, marginLeft:'auto' }}>{item.badge}</span>}
+                  </button>
+                )
+              })}
+              <button onClick={() => { setNav('settings'); setIsMobileDrawerOpen(false) }} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 12px', borderRadius:9, border:'none', cursor:'pointer', background: nav==='settings' ? `linear-gradient(90deg,${C.coral}22,${C.purple}15)` : 'transparent', color: nav==='settings' ? C.coral : C.muted, borderLeft: nav==='settings' ? `2px solid ${C.coral}` : '2px solid transparent', fontFamily:'Outfit,sans-serif', marginBottom:2 }}>
+                <Icon name="settings" size={15} /><span style={{ fontSize:13 }}>Settings</span>
+              </button>
+            </nav>
+            {/* Logout */}
+            <div style={{ padding:'12px', borderTop:`1px solid ${C.border}` }}>
+              <button onClick={() => { authApi.logout(); setIsLoggedIn(false); setActiveProject(null); setProjects([]); setAccount(null) }} style={{ width:'100%', background:`${C.coral}15`, border:`1px solid ${C.coral}44`, borderRadius:8, color:C.coral, cursor:'pointer', fontSize:12, padding:'9px 14px', fontFamily:'Outfit,sans-serif', fontWeight:700 }}>
+                Keluar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <aside style={{ width: sidebar ? 216 : 60, flexShrink:0, transition:'width .22s', background: C.bg, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ padding:'14px 14px', display:'flex', alignItems:'center', gap:10, borderBottom:`1px solid ${C.border}` }}>
           <img src={YUGMA_LOGO_B64} alt="Yugma IoT" style={{ width:32, height:32, objectFit:'contain', flexShrink:0 }} />
@@ -265,7 +316,11 @@ function AppShell() {
 
       {/* ── Main area ────────────────────────────────────────────────────── */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-        <header style={{ height:62, display:'flex', alignItems:'center', gap:16, padding:'0 24px', borderBottom:`1px solid ${C.border}`, background: C.surface, flexShrink:0 }}>
+        <header className="app-header" style={{ height:62, display:'flex', alignItems:'center', gap:16, padding:'0 24px', borderBottom:`1px solid ${C.border}`, background: C.surface, flexShrink:0 }}>
+          {/* Mobile hamburger — visible only on ≤768px via CSS */}
+          <button className="mobile-menu-btn" onClick={() => setIsMobileDrawerOpen(true)}>
+            <Icon name="menu" size={17} />
+          </button>
           {/* Left: page title */}
           <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
             <div>
@@ -274,8 +329,9 @@ function AppShell() {
             </div>
           </div>
 
+
           {/* Center: search */}
-          <div style={{ flex:1, display:'flex', justifyContent:'center' }}>
+          <div className="header-search-center">
             <div style={{ width:'100%', maxWidth:420, position:'relative' }}>
               <svg style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', pointerEvents:'none' }} width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth={2}><circle cx={11} cy={11} r={8}/><line x1={21} y1={21} x2={16.65} y2={16.65}/></svg>
               <input placeholder="Search..." style={{ width:'100%', padding:'9px 14px 9px 36px', background:'var(--c-input-bg)', border:'1px solid var(--c-border)', borderRadius:24, fontSize:13, color: C.light, outline:'none', fontFamily:'Outfit,sans-serif', boxSizing:'border-box', transition:'border-color .15s' }}
@@ -286,7 +342,7 @@ function AppShell() {
 
           {/* Right: controls + user */}
           <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-            <span style={{ fontFamily:'DM Mono,monospace', fontSize:11, color: C.muted }}>
+            <span className="header-clock" style={{ fontFamily:'DM Mono,monospace', fontSize:11, color: C.muted }}>
               {time.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'})}
             </span>
             <button onClick={()=>setIsDark(p=>!p)} title={isDark?'Light mode':'Dark mode'} style={{ width:34, height:34, borderRadius:'50%', background:'var(--c-btn-ghost)', border:'1px solid var(--c-border)', color: C.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}
@@ -305,7 +361,7 @@ function AppShell() {
             <button onClick={()=>{ authApi.logout(); setIsLoggedIn(false); setActiveProject(null); setProjects([]); setAccount(null) }} style={{ background:'transparent', border:`1px solid ${C.border}`, borderRadius:8, color:C.muted, cursor:'pointer', fontSize:11, padding:'7px 10px', fontFamily:'Outfit,sans-serif' }}>
               Keluar
             </button>
-            <div style={{ display:'flex', alignItems:'center', gap:10, paddingLeft:10, borderLeft:`1px solid ${C.border}`, cursor:'pointer' }} onClick={()=>setNav('settings')}>
+            <div className="header-user-label" style={{ display:'flex', alignItems:'center', gap:10, paddingLeft:10, borderLeft:`1px solid ${C.border}`, cursor:'pointer' }} onClick={()=>setNav('settings')}>
               <div style={{ width:34, height:34, borderRadius:'50%', background:`linear-gradient(135deg,${C.coral},${C.purple})`, display:'flex', alignItems:'center', justifyContent:'center', fontWeight:800, fontSize:14, color:'#fff', flexShrink:0 }}>A</div>
               <div>
                 <div style={{ fontWeight:700, fontSize:13, color: C.light, lineHeight:1.2 }}>{account?.email?.split('@')[0] ?? 'Account'}</div>
@@ -315,7 +371,7 @@ function AppShell() {
           </div>
         </header>
 
-        <main style={{ flex:1, overflowY:'auto', padding:22 }}>
+        <main className="main-content-area" style={{ flex:1, overflowY:'auto', padding:22 }}>
           {nav === 'home'        && <HomeView project={activeProject} account={account} onNavigate={key => setNav(key)} />}
           {nav === 'dashboard'   && <DashboardView project={activeProject} />}
           {nav === 'sensors'     && <SensorManagementView project={activeProject} onNavigate={key => setNav(key)} />}
@@ -329,6 +385,21 @@ function AppShell() {
           {nav === 'admin'       && <Empty title="Panel administrasi" text="Akses administrasi global tidak diaktifkan pada workspace pengguna." />}
         </main>
       </div>
+
+      {/* ── Mobile Bottom Navigation Bar (≤768px) ─────────────────────── */}
+      <nav className="mobile-bottom-nav">
+        {[NAV[0], NAV[1], NAV[3], NAV[4], NAV[8]].map(item => (
+          <button key={item.key} className={`mobile-bottom-nav-item${nav === item.key ? ' active' : ''}`} onClick={() => setNav(item.key)}>
+            <Icon name={item.icon} size={18} color={nav === item.key ? undefined : C.muted} />
+            <span>{item.label.split(' ')[0]}</span>
+            {nav === item.key && <div className="mobile-nav-dot" />}
+          </button>
+        ))}
+        <button className="mobile-bottom-nav-item" onClick={() => setIsMobileDrawerOpen(true)}>
+          <Icon name="menu" size={18} color={C.muted} />
+          <span>More</span>
+        </button>
+      </nav>
     </div>
   )
 }

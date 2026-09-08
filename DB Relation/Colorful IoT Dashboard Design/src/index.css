@@ -84,3 +84,180 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: var(--c-muted); }
 
 select option { background: var(--c-surface2); color: var(--c-text); }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE RESPONSIVE — Added for mobile/tablet support
+   (Does NOT touch or override any existing PC layout)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Bottom navigation bar (mobile only) ─────────────────────────────────── */
+.mobile-bottom-nav {
+  display: none;
+}
+
+/* ── Mobile drawer overlay ───────────────────────────────────────────────── */
+.mobile-drawer-overlay {
+  display: none;
+}
+
+/* ── Mobile hamburger button in header ───────────────────────────────────── */
+.mobile-menu-btn {
+  display: none;
+}
+
+/* ── Hide search bar on very small screens ───────────────────────────────── */
+.header-search-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+/* ── Tablet: 481px–768px ─────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Show hamburger in header */
+  .mobile-menu-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--c-btn-ghost);
+    border: 1px solid var(--c-border);
+    color: var(--c-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    order: -1;
+  }
+
+  /* Show mobile drawer overlay */
+  .mobile-drawer-overlay {
+    display: block !important;
+    position: fixed;
+    inset: 0;
+    z-index: 400;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(3px);
+  }
+
+  /* Drawer panel itself */
+  .mobile-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    max-width: 85vw;
+    background: var(--c-bg);
+    border-right: 1px solid var(--c-border);
+    z-index: 401;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    animation: slideInDrawer 0.22s ease;
+  }
+
+  @keyframes slideInDrawer {
+    from { transform: translateX(-100%); opacity: 0.5; }
+    to   { transform: translateX(0);    opacity: 1;   }
+  }
+
+  /* Bottom nav bar */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--c-bg);
+    border-top: 1px solid var(--c-border);
+    z-index: 200;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 4px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mobile-bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 1;
+    height: 100%;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: 'Outfit', sans-serif;
+    color: var(--c-muted);
+    font-size: 9px;
+    font-weight: 600;
+    transition: color 0.15s;
+    padding: 4px 2px;
+  }
+
+  .mobile-bottom-nav-item.active {
+    color: var(--c-accent-a);
+  }
+
+  .mobile-bottom-nav-item .mobile-nav-dot {
+    width: 28px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--c-accent-a);
+    margin-top: 2px;
+  }
+
+  /* Add bottom padding to main content so last widget isn't hidden behind bottom nav */
+  .main-content-area {
+    padding-bottom: 80px !important;
+  }
+
+  /* Shrink header for mobile */
+  .app-header {
+    padding: 0 12px !important;
+    gap: 8px !important;
+  }
+
+  /* Hide search bar on mobile */
+  .header-search-center {
+    display: none !important;
+  }
+
+  /* Shrink user info in header */
+  .header-user-label {
+    display: none !important;
+  }
+
+  /* Shrink clock */
+  .header-clock {
+    display: none !important;
+  }
+}
+
+/* ── Phone: ≤480px ───────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  /* Even tighter padding */
+  .main-content-area {
+    padding: 14px 12px !important;
+    padding-bottom: 80px !important;
+  }
+
+  /* 2-column grid on phone for dashboard widgets (override 4-col) */
+  .widget-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Widget that spans 4 col → 2 col on phone */
+  .widget-grid > [style*="span 4"] {
+    grid-column: span 2 !important;
+  }
+
+  /* Widget that spans 2 col → 2 col on phone (keep as-is) */
+  .widget-grid > [style*="span 2"] {
+    grid-column: span 2 !important;
+  }
+}
+
