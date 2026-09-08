@@ -236,30 +236,51 @@ select option { background: var(--c-surface2); color: var(--c-text); }
     display: none !important;
   }
 
-  /* Landing Page Mobile Adjustments */
+  /* Landing Page Fluid & Flexible Adjustments (NO elements hidden) */
+  .landing-nav {
+    flex-wrap: wrap !important;
+    height: auto !important;
+    min-height: 56px !important;
+    padding: 8px 12px !important;
+    gap: 8px !important;
+  }
+
   .landing-links {
-    display: none !important;
+    display: flex !important;
+    gap: clamp(10px, 2vw, 24px) !important;
+    margin-left: clamp(10px, 2.5vw, 40px) !important;
+  }
+
+  .landing-links button {
+    font-size: clamp(11px, 1.2vw, 13px) !important;
+  }
+
+  .landing-actions {
+    display: flex !important;
+    gap: clamp(4px, 1vw, 10px) !important;
   }
 
   .landing-btn-theme {
-    display: none !important;
+    display: inline-block !important;
+    padding: 5px 8px !important;
+    font-size: 11px !important;
   }
 
   .landing-grid-4 {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
   }
 
   .landing-grid-3 {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
   }
 
   /* Dashboard Widget Grid on Tablet (≤768px) */
   .widget-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)) !important;
   }
 
   .widget-card-item {
-    grid-column: span 2 !important;
+    grid-column: span 1 !important;
   }
 }
 
@@ -273,23 +294,23 @@ select option { background: var(--c-surface2); color: var(--c-text); }
 
   /* Landing Page Phone Adjustments */
   .landing-grid-4 {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
   }
 
   .landing-nav {
-    padding: 0 12px !important;
+    padding: 6px 10px !important;
   }
 
   .landing-actions {
-    gap: 6px !important;
+    gap: 4px !important;
   }
 
   .landing-actions button {
-    padding: 6px 10px !important;
-    font-size: 12px !important;
+    padding: 5px 8px !important;
+    font-size: 11px !important;
   }
 
-  /* 1-column grid on phone for dashboard widgets */
+  /* Fluid grid on phone for dashboard widgets */
   .widget-grid {
     grid-template-columns: 1fr !important;
   }
