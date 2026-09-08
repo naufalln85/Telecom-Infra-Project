@@ -235,29 +235,76 @@ select option { background: var(--c-surface2); color: var(--c-text); }
   .header-clock {
     display: none !important;
   }
+
+  /* Landing Page Mobile Adjustments */
+  .landing-links {
+    display: none !important;
+  }
+
+  .landing-btn-theme {
+    display: none !important;
+  }
+
+  .landing-grid-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .landing-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Dashboard Widget Grid on Tablet (≤768px) */
+  .widget-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .widget-card-item {
+    grid-column: span 2 !important;
+  }
 }
 
 /* ── Phone: ≤480px ───────────────────────────────────────────────────────── */
 @media (max-width: 480px) {
   /* Even tighter padding */
   .main-content-area {
-    padding: 14px 12px !important;
+    padding: 14px 10px !important;
     padding-bottom: 80px !important;
   }
 
-  /* 2-column grid on phone for dashboard widgets (override 4-col) */
+  /* Landing Page Phone Adjustments */
+  .landing-grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .landing-nav {
+    padding: 0 12px !important;
+  }
+
+  .landing-actions {
+    gap: 6px !important;
+  }
+
+  .landing-actions button {
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+  }
+
+  /* 1-column grid on phone for dashboard widgets */
   .widget-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-template-columns: 1fr !important;
   }
 
-  /* Widget that spans 4 col → 2 col on phone */
-  .widget-grid > [style*="span 4"] {
-    grid-column: span 2 !important;
-  }
-
-  /* Widget that spans 2 col → 2 col on phone (keep as-is) */
-  .widget-grid > [style*="span 2"] {
-    grid-column: span 2 !important;
+  .widget-card-item {
+    grid-column: span 1 !important;
   }
 }
+
+/* ── Table responsive wrapper fallback ───────────────────────────────────── */
+table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 

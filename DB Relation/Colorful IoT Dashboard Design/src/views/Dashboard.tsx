@@ -344,6 +344,7 @@ function WidgetCard({ widget, index, isEditing, isDragOver, onUpdateColSpan, onR
 
   return (
     <div
+      className="widget-card-item"
       draggable={isEditing}
       onDragStart={e => isEditing && onDragStart?.(e, index)}
       onDragOver={e => isEditing && onDragOver?.(e, index)}
@@ -573,7 +574,7 @@ export default function DashboardView({ project }: { project: Project | null }) 
 
       {widgets.length === 0
         ? <EmptyCanvas onAdd={() => setShowLibrary(true)} />
-        : <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
+        : <div className="widget-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
             {widgets.map((widget, idx) => (
               <WidgetCard
                 key={widget.id}
