@@ -112,8 +112,13 @@ select option { background: var(--c-surface2); color: var(--c-text); }
   justify-content: center;
 }
 
-/* ── Tablet: 481px–768px ─────────────────────────────────────────────────── */
+/* ── Tablet & Mobile: ≤768px ─────────────────────────────────────────────── */
 @media (max-width: 768px) {
+  /* Hide desktop sidebar on mobile to give 100% width to main content */
+  .desktop-sidebar {
+    display: none !important;
+  }
+
   /* Show hamburger in header */
   .mobile-menu-btn {
     display: flex !important;

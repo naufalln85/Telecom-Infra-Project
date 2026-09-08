@@ -236,7 +236,7 @@ function AppShell() {
         </div>
       )}
 
-      <aside style={{ width: sidebar ? 216 : 60, flexShrink:0, transition:'width .22s', background: C.bg, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      <aside className="desktop-sidebar" style={{ width: sidebar ? 216 : 60, flexShrink:0, transition:'width .22s', background: C.bg, borderRight:`1px solid ${C.border}`, display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ padding:'14px 14px', display:'flex', alignItems:'center', gap:10, borderBottom:`1px solid ${C.border}` }}>
           <img src={YUGMA_LOGO_B64} alt="Yugma IoT" style={{ width:32, height:32, objectFit:'contain', flexShrink:0 }} />
           {sidebar && <div style={{ flex:1, minWidth:0 }}><div style={{ fontWeight:800, fontSize:14, color: C.light }}>Yugma</div><div style={{ fontSize:9, color: C.muted, marginTop:1 }}>IoT Platform</div></div>}

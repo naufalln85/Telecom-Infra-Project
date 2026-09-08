@@ -432,7 +432,7 @@ export function AlertView({ project, onNavigate }: { project: Project | null; on
             <div style={{ color: C.muted, fontSize: 11, marginTop: 2 }}>Build an automation rule in seconds — no code required</div>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 0.7fr 1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+        <div className="quick-threshold-builder" style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 0.7fr 1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
           {[
             { label: "DEVICE", el: <Select value={selDevice} onChange={setSelDevice} options={deviceOptions} /> },
             { label: "CHANNEL / SENSOR", el: <Select value={selChannel} onChange={setSelChannel} options={channelOptions} /> },
@@ -585,7 +585,7 @@ export function AimlView({ onNavigate }: { onNavigate: Navigate }) {
         <span style={{ fontSize: 9, background: `${C.purple}22`, color: C.purple, padding: "4px 9px", borderRadius: 5, fontWeight: 700, border: `1px solid ${C.purple}44` }}>TERSEDIA UNTUK SEMUA PENGGUNA</span>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, marginBottom: 28 }}>
+      <div className="landing-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 16, marginBottom: 28 }}>
         {templates.map(t => (
           <Card key={t.title} style={{ padding: 22, minHeight: 290 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
@@ -612,7 +612,7 @@ export function AimlView({ onNavigate }: { onNavigate: Navigate }) {
       </div>
 
       {/* Model Kustom Anda (.onnx support) */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+      <div className="responsive-flex-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 13, color: C.muted, fontFamily: "DM Mono, monospace" }}>{"</>"}</span>
           <b style={{ color: C.light, fontSize: 15 }}>Model Kustom Anda (.onnx)</b>
@@ -631,7 +631,7 @@ export function AimlView({ onNavigate }: { onNavigate: Navigate }) {
       )}
 
       {customModels.length > 0 ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
+        <div className="landing-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 16 }}>
           {customModels.map(m => (
             <Card key={m.id} style={{ padding: 20 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
